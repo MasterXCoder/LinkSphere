@@ -6,3 +6,11 @@ logs/
 *.log
 
 .vscode/
+
+node_modules/
+client/node_modules/
+.env
+client/.env
+
+
+client/.gitignore 
