@@ -12,7 +12,7 @@ export default function Signup() {
 
   const handleSignup = async (data) => {
     try {
-      const res = await fetch("http://localhost:3000/api/users/signup", {
+      const res = await fetch("http://localhost:8000/api/users/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),

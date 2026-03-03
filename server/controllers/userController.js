@@ -1,28 +1,113 @@
 // User Controller
 // NOTE: No real DB yet — placeholder logic only
 
-const login = (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password are required" });
+const fs = require("fs");
+const path = require("path");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
+const SECRET = "linksphere_secret_key";
+const usersFilePath = path.join(__dirname, "../../users.json");
+
+
+const getUsers = () => {
+  if (!fs.existsSync(usersFilePath)) {
+    fs.writeFileSync(usersFilePath, "[]");
   }
-  // TODO: Add real auth logic
-  res.status(200).json({ message: "Login successful", user: { email } });
+  const data = fs.readFileSync(usersFilePath);
+  return JSON.parse(data);
 };
 
-const signup = (req, res) => {
+
+const saveUsers = (users) => {
+  fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
+};
+
+
+const signup = async (req, res) => {
   const { username, email, password } = req.body;
+
   if (!username || !email || !password) {
     return res.status(400).json({ error: "All fields are required" });
   }
-  // TODO: Add real registration logic
-  res.status(201).json({ message: "Account created", user: { username, email } });
+
+  const users = getUsers();
+
+  const existingUser = users.find(user => user.email === email);
+  if (existingUser) {
+    return res.status(400).json({ error: "User already exists" });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const newUser = {
+    id: Date.now(),
+    username,
+    email,
+    password: hashedPassword
+  };
+
+  users.push(newUser);
+  saveUsers(users);
+
+  res.status(201).json({
+    message: "Account created successfully"
+  });
 };
+
+
+
+const login = async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required" });
+  }
+
+  const users = getUsers();
+
+  const user = users.find(user => user.email === email);
+
+  if (!user) {
+    return res.status(400).json({ error: "User not found" });
+  }
+
+  const isMatch = await bcrypt.compare(password, user.password);
+
+  if (!isMatch) {
+    return res.status(400).json({ error: "Invalid credentials" });
+  }
+
+  const token = jwt.sign(
+    { id: user.id, username: user.username },
+    SECRET,
+    { expiresIn: "1h" }
+  );
+
+  res.status(200).json({
+    message: "Login successful",
+    token
+  });
+};
+
+
 
 const getUser = (req, res) => {
   const { id } = req.params;
-  // TODO: Fetch from DB
-  res.status(200).json({ id, username: "DemoUser" });
+
+  const users = getUsers();
+
+  const user = users.find(user => user.id == id);
+
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  res.status(200).json({
+    id: user.id,
+    username: user.username,
+    email: user.email
+  });
 };
 
 module.exports = { login, signup, getUser };
