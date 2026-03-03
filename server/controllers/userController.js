@@ -3,7 +3,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const bcrypt = require("bcrypt");
+// const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const SECRET = "linksphere_secret_key";
@@ -38,13 +38,11 @@ const signup = async (req, res) => {
     return res.status(400).json({ error: "User already exists" });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
-
   const newUser = {
     id: Date.now(),
     username,
     email,
-    password: hashedPassword
+    password: password
   };
 
   users.push(newUser);
@@ -72,9 +70,7 @@ const login = async (req, res) => {
     return res.status(400).json({ error: "User not found" });
   }
 
-  const isMatch = await bcrypt.compare(password, user.password);
-
-  if (!isMatch) {
+  if (password !== user.password) {
     return res.status(400).json({ error: "Invalid credentials" });
   }
 
