@@ -4,7 +4,7 @@
   "description": "LinkSphere is a scalable real-time communication platform inspired by Discord built using Node.js, Express.",
   "main": "index.js",
   "scripts": {
-    "server": "node server.js",
+    "server": "nodemon server.js",
     "client": "npm run dev --prefix client",
     "dev": "concurrently \"npm run server\" \"npm run client\""
   },
@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^5.2.1",
     "ws": "^8.19.0"
   },
