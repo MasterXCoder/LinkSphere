@@ -1,129 +1,97 @@
 import { Link } from "react-router-dom";
+import Navbar from "../components/Navbar";
 import styles from "./Landing.module.css";
+
+const COLLABORATORS = [
+  { handle: "MasterXCoder",  name: "Vanshdeep Singh Dhot",   initials: "VS" },
+  { handle: "ishpreet-02",   name: "Ishpreet Singh Bhatia",  initials: "IS" },
+  { handle: "madhavv-xd",    name: "Madhav",                 initials: "MA" },
+  { handle: "Mohit-jpg-dot", name: "Mohit",                  initials: "MO" },
+];
 
 export default function Landing() {
   return (
     <div className={styles.page}>
-      {/* ── Navbar ── */}
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <Link to="/" className={styles.logo}>
-            <span className={styles.logoIcon}>◈</span>
-            <span className={styles.logoText}>LinkSphere</span>
-          </Link>
-          <nav className={styles.nav}>
-            <Link to="#features" className={styles.navLink}>Features</Link>
-            <Link to="#about" className={styles.navLink}>About</Link>
-            <Link to="#contact" className={styles.navLink}>Contact</Link>
-          </nav>
-          <div className={styles.navActions}>
-            <Link to="/login" className={styles.loginBtn}>Log In</Link>
-            <Link to="/signup" className={styles.signupBtn}>Sign Up</Link>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       {/* ── Hero ── */}
       <main className={styles.hero}>
-        <div className={styles.heroContent}>
-          <p className={styles.badge}>Launching 2025</p>
-          <h1 className={styles.heading}>
-            Connect, Communicate,<br />Collaborate
-          </h1>
-          <p className={styles.sub}>
-            LinkSphere brings your community together in real time.
-            Create servers, manage channels, and stay in sync — always.
-          </p>
-          <div className={styles.heroActions}>
-            <Link to="/signup" className={styles.primaryBtn}>Get Started Free</Link>
-            <Link to="/login" className={styles.ghostBtn}>Log In</Link>
-          </div>
+        <div className={styles.glow} />
+        <span className={styles.badge}>Real-time Communication Platform</span>
+        <h1 className={styles.heading}>
+          Where Communities<br />Come Alive
+        </h1>
+        <p className={styles.sub}>
+          Create servers, manage channels, and connect instantly.<br />
+          LinkSphere brings your community together.
+        </p>
+        <div className={styles.actions}>
+          <Link to="/signup" className={styles.primary}>Get Started Free</Link>
+          <Link to="/login"  className={styles.secondary}>Log In</Link>
         </div>
-
-        {/* Decorative grid dots */}
-        <div className={styles.gridOverlay} aria-hidden="true" />
       </main>
 
-      {/* ── Features ── */}
-      <section id="features" className={styles.features}>
-        <h2 className={styles.sectionTitle}>Why LinkSphere?</h2>
-        <p className={styles.sectionSub}>Built for communities that need speed, reliability, and control.</p>
-        <div className={styles.cards}>
-          {[
-            { icon: "⚡", title: "Real-Time Messaging", desc: "Instant delivery with WebSocket-powered channels. No refresh needed." },
-            { icon: "🔒", title: "Secure Auth", desc: "JWT-based authentication keeps your account and data protected." },
-            { icon: "📡", title: "Custom Servers", desc: "Create your own servers, set channels, and invite your community." },
-            { icon: "🌐", title: "Always Online", desc: "Cloud-hosted infrastructure designed for 99.9% uptime." },
-          ].map((f) => (
-            <div className={styles.card} key={f.title}>
-              <div className={styles.cardIcon}>{f.icon}</div>
-              <h3 className={styles.cardTitle}>{f.title}</h3>
-              <p className={styles.cardDesc}>{f.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── About ── */}
-      <section id="about" className={styles.about}>
-        <div className={styles.aboutInner}>
-          <div className={styles.aboutText}>
-            <h2 className={styles.sectionTitle}>About LinkSphere</h2>
-            <p className={styles.aboutDesc}>
-              LinkSphere is a scalable real-time communication platform inspired by Discord,
-              built with Node.js, Express, and React. It was created as a learning project
-              to demonstrate full-stack development with authentication, routing, and live messaging.
-            </p>
-            <p className={styles.aboutDesc}>
-              From the backend REST API to the React frontend, every part is handcrafted
-              to show how modern web applications are structured and deployed.
-            </p>
-          </div>
-          <div className={styles.aboutStats}>
-            {[
-              { val: "100%", label: "Open Source" },
-              { val: "JWT", label: "Auth Standard" },
-              { val: "WS", label: "Real-Time Protocol" },
-            ].map((s) => (
-              <div className={styles.stat} key={s.label}>
-                <span className={styles.statVal}>{s.val}</span>
-                <span className={styles.statLabel}>{s.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── Footer ── */}
-      <footer id="contact" className={styles.footer}>
+      <footer className={styles.footer}>
         <div className={styles.footerInner}>
-          <div className={styles.footerBrand}>
-            <span className={styles.logoIcon}>◈</span>
-            <span className={styles.logoText}>LinkSphere</span>
+
+          {/* Col 1 – Brand */}
+          <div className={styles.col}>
+            <span className={styles.footerLogo}>◈ LinkSphere</span>
             <p className={styles.footerTagline}>Real-time communication platform</p>
+            <p className={styles.footerTagline}>
+              A full-stack chat app built as a learning project — featuring servers, channels, and live messaging.
+            </p>
           </div>
 
-          <div className={styles.footerContact}>
-            <h4 className={styles.footerHeading}>Contact Us</h4>
+          {/* Col 2 – Contact */}
+          <div className={styles.col}>
+            <h4 className={styles.colHeading}>Contact Us</h4>
             <ul className={styles.contactList}>
-              <li>📧 <a href="mailto:vanshdhot2544@gmail.com">vanshdhot2544@gmail.com</a></li>
-              <li>📍 Patiala, Punjab, India</li>
-              <li>🐙 <a href="https://github.com/MasterXCoder/LinkSphere" target="_blank" rel="noreferrer">github.com/linksphere</a></li>
+              <li>
+                <span className={styles.icon}>✉</span>
+                <a href="mailto:vanshdhot2544@gmail.com">vanshdhot2544@gmail.com</a>
+              </li>
+              <li>
+                <span className={styles.icon}>📍</span>
+                Patiala, Punjab, India
+              </li>
+              <li>
+                <span className={styles.icon}>🐙</span>
+                <a href="https://github.com/MasterXCoder/LinkSphere" target="_blank" rel="noreferrer">
+                  github.com/MasterXCoder/LinkSphere
+                </a>
+              </li>
             </ul>
           </div>
 
-          <div className={styles.footerLinks}>
-            <h4 className={styles.footerHeading}>Quick Links</h4>
-            <ul className={styles.linkList}>
-              <li><Link to="/signup">Create Account</Link></li>
-              <li><Link to="/login">Log In</Link></li>
-              <li><Link to="#features">Features</Link></li>
-              <li><Link to="#about">About</Link></li>
+          {/* Col 3 – Contributors */}
+          <div className={styles.col}>
+            <h4 className={styles.colHeading}>Contributors</h4>
+            <ul className={styles.collabList}>
+              {COLLABORATORS.map((c) => (
+                <li key={c.handle}>
+                  <a
+                    href={`https://github.com/${c.handle}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={styles.collabRow}
+                  >
+                    <span className={styles.avatar}>{c.initials}</span>
+                    <span className={styles.collabText}>
+                      <span className={styles.collabName}>{c.name}</span>
+                      <span className={styles.collabHandle}>@{c.handle}</span>
+                    </span>
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
+
         </div>
+
         <div className={styles.footerBottom}>
-          <p>© 2025 LinkSphere. Built with Node.js & React.</p>
+          <p>© 2025 LinkSphere · Built with Node.js &amp; React</p>
         </div>
       </footer>
     </div>

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;500;600;700&display=swap');
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -7,17 +7,19 @@
 }
 
 :root {
-  --bg: #0d0e10;
-  --surface: #161820;
-  --surface2: #1e2028;
-  --border: #2a2d38;
-  --accent: #5b6af0;
-  --accent-hover: #7381f5;
-  --text: #e8e9f0;
-  --text-muted: #7b7e91;
-  --danger: #e05252;
-  --success: #52c77a;
-  font-family: 'DM Sans', sans-serif;
+  /* Discord-inspired palette */
+  --bg:           #313338;
+  --surface:      #2b2d31;
+  --surface2:     #1e1f22;
+  --border:       #3f4147;
+  --accent:       #5865f2;
+  --accent-hover: #4752c4;
+  --text:         #f2f3f5;
+  --text-muted:   #b5bac1;
+  --danger:       #ed4245;
+  --success:      #23a55a;
+
+  font-family: 'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
 }
 
 body {
@@ -25,6 +27,7 @@ body {
   color: var(--text);
   min-height: 100vh;
   margin: 0;
+  font-size: 15px;
 }
 
 a { text-decoration: none; color: inherit; }
