@@ -3,8 +3,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.2rem 2.5rem;
-  border-bottom: 1px solid var(--border);
-  background: rgba(13, 14, 16, 0.85);
+  border-bottom: 1px solid #1f2023; /* Updated to match new theme */
+  background: rgba(30, 31, 34, 0.85); /* Matches server sidebar */
   backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
@@ -15,11 +15,12 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  text-decoration: none;
 }
 
 .logoIcon {
   font-size: 1.5rem;
-  color: var(--accent);
+  color: #5865f2; /* Discord Blurple */
 }
 
 .logoText {
@@ -27,7 +28,7 @@
   font-weight: 800;
   font-size: 1.25rem;
   letter-spacing: -0.02em;
-  color: var(--text);
+  color: #f2f3f5;
 }
 
 .links {
@@ -39,22 +40,24 @@
 .loginBtn {
   padding: 0.5rem 1.2rem;
   border-radius: 6px;
-  color: var(--text-muted);
+  color: #b5bac1;
   font-size: 0.9rem;
   font-weight: 500;
+  text-decoration: none;
   transition: color 0.2s;
 }
 
-.loginBtn:hover { color: var(--text); }
+.loginBtn:hover { color: #f2f3f5; }
 
 .signupBtn {
   padding: 0.5rem 1.2rem;
   border-radius: 6px;
-  background: var(--accent);
+  background: #5865f2;
   color: #fff;
   font-size: 0.9rem;
   font-weight: 500;
+  text-decoration: none;
   transition: background 0.2s;
 }
 
-.signupBtn:hover { background: var(--accent-hover); }
+.signupBtn:hover { background: #4752c4; }
