@@ -19,27 +19,5 @@
         "type": "text"
       }
     ]
-  },
-  {
-    "id": 1772607050475,
-    "name": "ishpreet's server",
-    "inviteCode": "6d72e27c",
-    "ownerId": 1772606987601,
-    "members": [
-      1772606987601,
-      1772577082796
-    ],
-    "channels": [
-      {
-        "id": "ch_1772607050477_1",
-        "name": "general",
-        "type": "text"
-      },
-      {
-        "id": "ch_1772607050477_2",
-        "name": "random",
-        "type": "text"
-      }
-    ]
   }
 ]

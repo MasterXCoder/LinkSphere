@@ -805,9 +805,8 @@
 
 /* Giant Wordmark */
 .footerWordmark {
-  font-size: clamp(6rem, 18vw, 16rem);
+  font-size: clamp(10rem, 18vw, 16rem);
   font-weight: 900;
-  text-transform: uppercase;
   color: rgba(88, 101, 242, 0.08);
   text-align: center;
   line-height: 0.85;
@@ -929,4 +928,5 @@
   .footerWordmark {
     font-size: 4rem;
   }
+
 }

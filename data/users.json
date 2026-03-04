@@ -1,27 +1,9 @@
 [
   {
-    "id": 1,
-    "username": "oggy",
-    "email": "oggy@gmail.com",
-    "password": "oggy1234"
-  },
-  {
     "id": 2,
     "username": "bob",
     "email": "bob@example.com",
     "password": "bob456"
-  },
-  {
-    "id": 3,
-    "username": "jack",
-    "email": "jack@gmail.com",
-    "password": "jack789"
-  },
-  {
-    "id": 1772566230610,
-    "username": "DeeDee",
-    "email": "dee@gmail.com",
-    "password": "456"
   },
   {
     "id": 1772577082796,
@@ -42,9 +24,41 @@
     "password": "12345678"
   },
   {
-    "id": 1772606987601,
-    "username": "ishpreet",
-    "email": "ishpreet@gmail.com",
+    "id": 1772604501548,
+    "username": "Mohit",
+    "email": "mohittoor714@gmail.com",
     "password": "12345678"
+  },
+  {
+    "id": 1772605128955,
+    "username": "kansh",
+    "email": "kansh123@gmail.com",
+    "password": "pop,.098"
+  },
+  {
+    "id": 1772610625541,
+    "username": "mohit1268",
+    "email": "mohittoor108@gmail.com",
+    "password": "pop,.098"
+  },
+  {
+    "id": 1772633511279,
+    "username": "ishpreet_02",
+    "email": "ishpreet@gmail.com",
+    "password": "1234567"
+  },
+  {
+    "id": 1772644923002,
+    "username": "David",
+    "email": "david123@gmail.com",
+    "dob": "2025-03-04",
+    "password": "davidismyfriend"
+  },
+  {
+    "id": 1772648259005,
+    "username": "Vansh",
+    "email": "vansh24@gmail.com",
+    "dob": "2005-02-06",
+    "password": "456"
   }
 ]

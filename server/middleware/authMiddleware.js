@@ -2,8 +2,8 @@
 // Verifies the JWT token sent in the Authorization header
 // Usage: Authorization: Bearer <token>
 const dotenv = require("dotenv");
-dotenv.config();
 const jwt = require("jsonwebtoken");
+dotenv.config();
 const SECRET = process.env.JWT_SECRET;
 
 const verifyToken = (req, res, next) => {

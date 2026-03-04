@@ -1084,3 +1084,267 @@
 .actionItem {
   display: none;
 }
+
+/* ═══════════════════════════════════════════
+   USER PROFILE POPUP
+   ═══════════════════════════════════════════ */
+.userPopup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 300px;
+  background: var(--bg-raised);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 999;
+  animation: popupIn 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes popupIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.userPopupBanner {
+  height: 80px;
+  background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+  position: relative;
+}
+
+.userPopupAvatar {
+  position: absolute;
+  bottom: -24px;
+  left: 16px;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c3aed, #3b82f6);
+  border: 5px solid var(--bg-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.userPopupStatusDot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--success);
+  border: 3px solid var(--bg-raised);
+  border-radius: 50%;
+}
+
+.userPopupNames {
+  padding: 36px 16px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.userPopupDisplayName {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.userPopupUsername {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.userPopupActions {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.userPopupItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.userPopupItem:hover {
+  background: var(--bg-hover);
+}
+
+.userPopupItemMuted {
+  color: var(--text-secondary);
+}
+
+.userPopupItemMuted:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.userPopupBadge {
+  margin-left: 8px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+/* Status dots */
+.statusDotOnline,
+.statusDotIdle,
+.statusDotDnd,
+.statusDotInvisible {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.statusDotOnline {
+  background: #22c55e;
+}
+
+.statusDotIdle {
+  background: #f59e0b;
+}
+
+.statusDotDnd {
+  background: #ef4444;
+}
+
+.statusDotInvisible {
+  background: var(--text-muted);
+}
+
+/* Status submenu */
+.statusSubmenu {
+  position: absolute;
+  left: calc(100% + 6px);
+  top: 0;
+  width: 260px;
+  background: var(--bg-raised);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  padding: 6px;
+  z-index: 1000;
+  animation: popupIn 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.statusSubmenuItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.statusSubmenuItem:hover {
+  background: var(--bg-hover);
+}
+
+.statusActive {
+  background: var(--bg-surface);
+}
+
+.statusSubmenuDesc {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 12px 8px;
+  line-height: 1.4;
+}
+
+/* Generic status dot — color set via inline style */
+.statusDotBase {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* Inline status panel (expands inside popup) */
+.statusInlinePanel {
+  background: var(--bg-surface);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin: 2px 4px 4px;
+}
+
+.statusPanelItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.statusPanelItem:last-child {
+  border-bottom: none;
+}
+
+.statusPanelItem:hover {
+  background: var(--bg-hover);
+}
+
+.statusPanelActive {
+  background: var(--bg-raised);
+}
+
+.statusPanelText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statusPanelDesc {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+}

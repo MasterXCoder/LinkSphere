@@ -7,6 +7,14 @@ import UserSettings from "./UserSettings";
 
 const API = "http://localhost:8000/api";
 
+// Status config — defined at module level so it's stable across renders
+const STATUSES = {
+  online: { label: 'Online', dot: '#22c55e', indicatorColor: '#22c55e' },
+  idle: { label: 'Idle', dot: '#f59e0b', indicatorColor: '#f59e0b' },
+  dnd: { label: 'Do Not Disturb', dot: '#ef4444', indicatorColor: '#ef4444' },
+  invisible: { label: 'Invisible', dot: '#6b7280', indicatorColor: '#6b7280' },
+};
+
 function authHeaders() {
   return {
     "Content-Type": "application/json",
@@ -32,9 +40,20 @@ export default function AppPage() {
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
   const [showServerMenu, setShowServerMenu] = useState(false);
   const [toast, setToast] = useState("");
+  const [showUserPopup, setShowUserPopup] = useState(false);
+  const [showStatusSubmenu, setShowStatusSubmenu] = useState(false);
+  const [isDeafened, setIsDeafened] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState('online');
 
   const chatEndRef = useRef(null);
   const pollRef = useRef(null);
+  const userPopupRef = useRef(null);
+
+  const selectStatus = (key) => {
+    setCurrentStatus(key);
+    setShowStatusSubmenu(false);
+  };
+
 
   // ── Fetch user's servers ──
   const fetchServers = useCallback(async () => {
@@ -50,6 +69,18 @@ export default function AppPage() {
   }, []);
 
   useEffect(() => { fetchServers(); }, [fetchServers]);
+
+  // ── Close user popup on outside click ──
+  useEffect(() => {
+    const handler = (e) => {
+      if (userPopupRef.current && !userPopupRef.current.contains(e.target)) {
+        setShowUserPopup(false);
+        setShowStatusSubmenu(false);
+      }
+    };
+    if (showUserPopup) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showUserPopup]);
 
   // ── Fetch full server data when active server changes ──
   useEffect(() => {
@@ -204,17 +235,100 @@ export default function AppPage() {
 
   // ── User Info Bar ──
   const UserInfoBar = () => (
-    <footer className={styles.userInfo}>
-      <div className={styles.userLeft}>
+    <footer className={styles.userInfo} style={{ position: 'relative' }}>
+      {/* User Profile Popup */}
+      {showUserPopup && (
+        <div ref={userPopupRef} className={styles.userPopup}>
+          {/* Banner + Avatar */}
+          <div className={styles.userPopupBanner}>
+            <div className={styles.userPopupAvatar}>
+              {username.charAt(0).toUpperCase()}
+              <div className={styles.userPopupStatusDot}></div>
+            </div>
+          </div>
+          {/* Name */}
+          <div className={styles.userPopupNames}>
+            <div className={styles.userPopupDisplayName}>{username}</div>
+            <div className={styles.userPopupUsername}>{username.toLowerCase().replace(/\s/g, '_')}</div>
+          </div>
+          {/* Actions */}
+          <div className={styles.userPopupActions}>
+            <button
+              className={styles.userPopupItem}
+              onClick={() => { setShowUserPopup(false); setShowSettings(true); }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+              Edit Profile
+            </button>
+
+            <div style={{ position: 'relative' }}>
+              <button
+                className={styles.userPopupItem}
+                onClick={() => setShowStatusSubmenu(!showStatusSubmenu)}
+              >
+                <span
+                  className={styles.statusDotBase}
+                  style={{ background: STATUSES[currentStatus].dot }}
+                ></span>
+                {STATUSES[currentStatus].label}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 'auto', transition: 'transform 0.2s', transform: showStatusSubmenu ? 'rotate(90deg)' : 'none' }}><polyline points="9 18 15 12 9 6" /></svg>
+              </button>
+              {showStatusSubmenu && (
+                <div className={styles.statusInlinePanel}>
+                  <button className={`${styles.statusPanelItem} ${currentStatus === 'online' ? styles.statusPanelActive : ''}`} onClick={() => selectStatus('online')}>
+                    <span className={styles.statusDotBase} style={{ background: '#22c55e' }}></span>
+                    Online
+                  </button>
+                  <button className={`${styles.statusPanelItem} ${currentStatus === 'idle' ? styles.statusPanelActive : ''}`} onClick={() => selectStatus('idle')}>
+                    <span className={styles.statusDotBase} style={{ background: '#f59e0b' }}></span>
+                    <div className={styles.statusPanelText}><span>Idle</span></div>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 'auto' }}><polyline points="9 18 15 12 9 6" /></svg>
+                  </button>
+                  <button className={`${styles.statusPanelItem} ${currentStatus === 'dnd' ? styles.statusPanelActive : ''}`} onClick={() => selectStatus('dnd')}>
+                    <span className={styles.statusDotBase} style={{ background: '#ef4444' }}></span>
+                    <div className={styles.statusPanelText}>
+                      <span>Do Not Disturb</span>
+                      <span className={styles.statusPanelDesc}>You will not receive desktop notifications</span>
+                    </div>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 'auto' }}><polyline points="9 18 15 12 9 6" /></svg>
+                  </button>
+                  <button className={`${styles.statusPanelItem} ${currentStatus === 'invisible' ? styles.statusPanelActive : ''}`} onClick={() => selectStatus('invisible')}>
+                    <span className={styles.statusDotBase} style={{ background: '#6b7280' }}></span>
+                    <div className={styles.statusPanelText}>
+                      <span>Invisible</span>
+                      <span className={styles.statusPanelDesc}>You will appear offline</span>
+                    </div>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 'auto' }}><polyline points="9 18 15 12 9 6" /></svg>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              className={`${styles.userPopupItem} ${styles.userPopupItemMuted}`}
+              onClick={() => { setShowUserPopup(false); handleLogout(); }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 10H3M7 6l-4 4 4 4" /><path d="M21 21V15M21 9V3M3 3v18" /></svg>
+              Switch Accounts
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 'auto' }}><polyline points="9 18 15 12 9 6" /></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={styles.userLeft}
+        onClick={() => { setShowUserPopup(!showUserPopup); setShowStatusSubmenu(false); }}
+      >
         <div className={styles.avatarWrapper}>
           <div className={styles.userAvatar}>
             {username.charAt(0).toUpperCase()}
           </div>
-          <div className={styles.statusIndicator}></div>
+          <div className={styles.statusIndicator} style={{ background: STATUSES[currentStatus].indicatorColor }}></div>
         </div>
         <div className={styles.userText}>
           <div className={styles.userName}>{username}</div>
-          <div className={styles.userStatus}>Online</div>
+          <div className={styles.userStatus}>{STATUSES[currentStatus].label}</div>
         </div>
       </div>
 
@@ -231,11 +345,30 @@ export default function AppPage() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
           )}
         </button>
+        {/* Headphone / Deafen button */}
+        <button
+          type="button"
+          className={`${styles.userIconBtn} ${isDeafened ? styles.userIconBtnDanger : ""}`}
+          onClick={() => setIsDeafened(!isDeafened)}
+          title={isDeafened ? "Undeafen" : "Deafen"}
+        >
+          {isDeafened ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="1" y1="1" x2="23" y2="23" />
+              <path d="M4.24 4.24A9.9 9.9 0 0 0 2 12v1a3 3 0 0 0 3 3h1a1 1 0 0 0 1-1V11a1 1 0 0 0-1-1H3a9.96 9.96 0 0 1 2.02-5.76" />
+              <path d="M18 11h-1a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h1a3 3 0 0 0 3-3v-1a9.96 9.96 0 0 0-2.02-5.76" />
+              <path d="M12 2a9.96 9.96 0 0 1 5.76 2.02" />
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+              <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" />
+              <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+            </svg>
+          )}
+        </button>
         <button type="button" className={styles.userIconBtn} title="User Settings" onClick={() => setShowSettings(true)}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-        </button>
-        <button type="button" className={styles.userIconBtn} title="Log Out" onClick={handleLogout} style={{ color: '#f23f43' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
         </button>
       </div>
     </footer>
