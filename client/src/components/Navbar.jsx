@@ -8,8 +8,9 @@ export default function Navbar() {
 
   return (
     <nav className={styles.navbar}>
-      <Link to="/" className={styles.logo}>
-        <Logo size={22} />
+      <Link to="/" className={styles.logoLink}>
+        {/* Only the icon, no text */}
+        <Logo size={32} light />
       </Link>
 
       <div className={styles.links}>

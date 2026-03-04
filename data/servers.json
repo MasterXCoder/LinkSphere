@@ -41,5 +41,26 @@
         "type": "text"
       }
     ]
+  },
+  {
+    "id": 1772651319279,
+    "name": "Vanshika's server",
+    "inviteCode": "0d53e99b",
+    "ownerId": 1772610625541,
+    "members": [
+      1772610625541
+    ],
+    "channels": [
+      {
+        "id": "ch_1772651319283_1",
+        "name": "general",
+        "type": "text"
+      },
+      {
+        "id": "ch_1772651319283_2",
+        "name": "random",
+        "type": "text"
+      }
+    ]
   }
 ]

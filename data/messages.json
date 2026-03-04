@@ -80,5 +80,13 @@
     "content": "ek damm bhadiaaa",
     "type": "user",
     "timestamp": "2026-03-04T08:37:09.017Z"
+  },
+  {
+    "id": 1772651319285,
+    "serverId": 1772651319279,
+    "channelId": "ch_1772651319283_1",
+    "type": "system",
+    "content": "Vanshika created the server. Welcome!",
+    "timestamp": "2026-03-04T19:08:39.285Z"
   }
 ]

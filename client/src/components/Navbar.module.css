@@ -82,3 +82,25 @@
   background: #f0f0f0;
   transform: translateY(-1px);
 }
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem; 
+  background-color: transparent; 
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+}
+
+.logoLink {
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s ease;
+}
+
+.logoLink:hover {
+  transform: scale(1.1); 
+}
