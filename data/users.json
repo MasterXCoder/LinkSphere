@@ -70,5 +70,12 @@
     "username": "Ishu123",
     "email": "ishu123@gmail.com",
     "password": "ishukigirlfriendnibanri"
+  },
+  {
+    "id": 1772644923002,
+    "username": "David",
+    "email": "david123@gmail.com",
+    "dob": "2025-03-04",
+    "password": "davidismyfriend"
   }
 ]

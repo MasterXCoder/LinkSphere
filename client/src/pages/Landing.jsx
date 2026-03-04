@@ -58,7 +58,7 @@ export default function Landing() {
     <div className={styles.page}>
       <Navbar />
 
-      {/* ── Hero ── */}
+      {/* Hero Section */}
       <section className={styles.hero}>
         <div className={styles.starField}>
           {Array.from({ length: 30 }).map((_, i) => (
@@ -110,19 +110,12 @@ export default function Landing() {
               </div>
               <div className={styles.mockupChannels}>
                 <div className={styles.channelHeader}>LinkSphere</div>
-                <div className={styles.channelItem}>
-                  <span className={styles.hash}>#</span> general
-                </div>
-                <div className={`${styles.channelItem} ${styles.activeChannel}`}>
-                  <span className={styles.hash}>#</span> gaming
-                </div>
-                <div className={styles.channelItem}>
-                  <span className={styles.hash}>#</span> music
-                </div>
-                <div className={styles.channelItem}>
-                  <span className={styles.voiceIcon}>🔊</span> Voice Lounge
-                </div>
+                <div className={styles.channelItem}><span className={styles.hash}>#</span> general</div>
+                <div className={`${styles.channelItem} ${styles.activeChannel}`}><span className={styles.hash}>#</span> gaming</div>
+                <div className={styles.channelItem}><span className={styles.hash}>#</span> music</div>
+                <div className={styles.channelItem}><span className={styles.voiceIcon}>🔊</span> Voice Lounge</div>
               </div>
+              
               <div className={styles.mockupChat}>
                 <div className={styles.chatMsg}>
                   <span className={styles.msgAvatar} style={{ background: '#5865f2' }}>V</span>
@@ -132,6 +125,7 @@ export default function Landing() {
                     <p className={styles.msgText}>Hey everyone! Welcome to LinkSphere 🚀</p>
                   </div>
                 </div>
+
                 <div className={styles.chatMsg}>
                   <span className={styles.msgAvatar} style={{ background: '#3ba55d' }}>I</span>
                   <div>
@@ -140,6 +134,7 @@ export default function Landing() {
                     <p className={styles.msgText}>This looks amazing! Let's go 🎉</p>
                   </div>
                 </div>
+
                 <div className={styles.chatMsg}>
                   <span className={styles.msgAvatar} style={{ background: '#faa61a' }}>M</span>
                   <div>
@@ -148,13 +143,22 @@ export default function Landing() {
                     <p className={styles.msgText}>Time to build something epic 💪</p>
                   </div>
                 </div>
+
+                <div className={styles.chatMsg}>
+                  <span className={styles.msgAvatar} style={{ background: '#f258e8' }}>M</span>
+                  <div>
+                    <span className={styles.msgName} style={{ color: '#ef58f2' }}>Mohit</span>
+                    <span className={styles.msgTime}>Today at 2:40 PM</span>
+                    <p className={styles.msgText}>Cool, lets add that feature.</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Feature Sections (alternating) ── */}
+      {/* Feature Sections */}
       {FEATURES.map((f, i) => (
         <section
           key={i}
@@ -166,10 +170,7 @@ export default function Landing() {
             <div className={styles.featureCardMock}>
               {f.gradient === "purple" && (
                 <div className={styles.miniServer}>
-                  <div className={styles.miniServerHeader}>
-                    <span className={styles.miniHash}>#</span>
-                    <span>general</span>
-                  </div>
+                  <div className={styles.miniServerHeader}><span className={styles.miniHash}>#</span><span>general</span></div>
                   <div className={styles.miniChannelList}>
                     <div className={styles.miniChannel}># announcements</div>
                     <div className={styles.miniChannel}># welcome</div>
@@ -181,66 +182,34 @@ export default function Landing() {
               {f.gradient === "pink" && (
                 <div className={styles.miniChat}>
                   <div className={styles.miniChatBubble}>
-                    <span className={styles.miniAvatar} style={{ background: '#5865f2' }}>A</span>
-                    <div className={styles.miniBubbleContent}>
-                      <span className={styles.miniBubbleName}>Alex</span>
-                      <span>Anyone up for a game? 🎮</span>
-                    </div>
+                    <span className={styles.miniAvatar} style={{ background: '#5865f2' }}>M</span>
+                    <div className={styles.miniBubbleContent}><span className={styles.miniBubbleName}>Mohit</span><span>Anyone up for a game? 🎮</span></div>
                   </div>
                   <div className={styles.miniChatBubble}>
-                    <span className={styles.miniAvatar} style={{ background: '#3ba55d' }}>J</span>
-                    <div className={styles.miniBubbleContent}>
-                      <span className={styles.miniBubbleName}>Jordan</span>
-                      <span>Count me in! 🙌</span>
-                    </div>
+                    <span className={styles.miniAvatar} style={{ background: '#3ba55d' }}>I</span>
+                    <div className={styles.miniBubbleContent}><span className={styles.miniBubbleName}>Ishpreet</span><span>Count me in! 🙌</span></div>
                   </div>
                   <div className={styles.miniTyping}>
-                    <span className={styles.typingDot} />
-                    <span className={styles.typingDot} />
-                    <span className={styles.typingDot} />
-                    <span className={styles.typingLabel}>Sam is typing...</span>
+                    <span className={styles.typingDot} /><span className={styles.typingDot} /><span className={styles.typingDot} />
+                    <span className={styles.typingLabel}>Vansh is typing...</span>
                   </div>
                 </div>
               )}
               {f.gradient === "green" && (
                 <div className={styles.miniOnline}>
                   <div className={styles.miniOnlineHeader}>ONLINE — 3</div>
-                  <div className={styles.miniUser}>
-                    <span className={styles.miniUserDot} style={{ background: '#3ba55d' }} />
-                    <span>Vansh</span>
-                    <span className={styles.miniActivity}>Playing VSCode</span>
-                  </div>
-                  <div className={styles.miniUser}>
-                    <span className={styles.miniUserDot} style={{ background: '#3ba55d' }} />
-                    <span>Ishpreet</span>
-                    <span className={styles.miniActivity}>Listening to Spotify</span>
-                  </div>
-                  <div className={styles.miniUser}>
-                    <span className={styles.miniUserDot} style={{ background: '#faa61a' }} />
-                    <span>Madhav</span>
-                    <span className={styles.miniActivity}>Idle</span>
-                  </div>
+                  <div className={styles.miniUser}><span className={styles.miniUserDot} style={{ background: '#3ba55d' }} /><span>Vansh</span><span className={styles.miniActivity}>Playing VSCode</span></div>
+                  <div className={styles.miniUser}><span className={styles.miniUserDot} style={{ background: '#3ba55d' }} /><span>Ishpreet</span><span className={styles.miniActivity}>Listening to Spotify</span></div>
+                  <div className={styles.miniUser}><span className={styles.miniUserDot} style={{ background: '#faa61a' }} /><span>Madhav</span><span className={styles.miniActivity}>Idle</span></div>
                 </div>
               )}
               {f.gradient === "blue" && (
                 <div className={styles.miniRoles}>
                   <div className={styles.miniRolesHeader}>Roles & Permissions</div>
-                  <div className={styles.miniRole}>
-                    <span className={styles.miniRoleDot} style={{ background: '#ed4245' }} />
-                    Admin
-                  </div>
-                  <div className={styles.miniRole}>
-                    <span className={styles.miniRoleDot} style={{ background: '#5865f2' }} />
-                    Moderator
-                  </div>
-                  <div className={styles.miniRole}>
-                    <span className={styles.miniRoleDot} style={{ background: '#3ba55d' }} />
-                    Member
-                  </div>
-                  <div className={styles.miniRole}>
-                    <span className={styles.miniRoleDot} style={{ background: '#faa61a' }} />
-                    Guest
-                  </div>
+                  <div className={styles.miniRole}><span className={styles.miniRoleDot} style={{ background: '#ed4245' }} />Admin</div>
+                  <div className={styles.miniRole}><span className={styles.miniRoleDot} style={{ background: '#5865f2' }} />Moderator</div>
+                  <div className={styles.miniRole}><span className={styles.miniRoleDot} style={{ background: '#3ba55d' }} />Member</div>
+                  <div className={styles.miniRole}><span className={styles.miniRoleDot} style={{ background: '#faa61a' }} />Guest</div>
                 </div>
               )}
             </div>
@@ -252,7 +221,7 @@ export default function Landing() {
         </section>
       ))}
 
-      {/* ── CTA Section ── */}
+      {/* CTA Section */}
       <section className={styles.cta}>
         <div className={styles.ctaStars}>
           {Array.from({ length: 15 }).map((_, i) => (
@@ -266,9 +235,7 @@ export default function Landing() {
           ))}
         </div>
         <h2 className={styles.ctaHeading}>Ready to start your journey?</h2>
-        <p className={styles.ctaSub}>
-          Join LinkSphere today and bring your community together.
-        </p>
+        <p className={styles.ctaSub}>Join LinkSphere today and bring your community together.</p>
         <Link to="/signup" className={styles.ctaButton}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor" />
@@ -277,16 +244,12 @@ export default function Landing() {
         </Link>
       </section>
 
-      {/* ── Footer ── */}
+      {/* Footer */}
       <footer className={styles.footer}>
         <div className={styles.footerInner}>
-
-          {/* Col 1 – Brand + Social */}
           <div className={styles.footerBrand}>
             <span className={styles.footerLogo}><Logo size={20} light /></span>
-            <p className={styles.footerTagline}>
-              Real-time communication platform for communities, gamers, and friends.
-            </p>
+            <p className={styles.footerTagline}>Real-time communication platform for communities, gamers, and friends.</p>
             <div className={styles.socialLinks}>
               <a href="https://github.com/MasterXCoder/LinkSphere" target="_blank" rel="noreferrer" aria-label="GitHub">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" /></svg>
@@ -294,7 +257,6 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Col 2 – Product */}
           <div className={styles.footerCol}>
             <h4 className={styles.footerColHeading}>Product</h4>
             <ul className={styles.footerLinks}>
@@ -304,27 +266,20 @@ export default function Landing() {
             </ul>
           </div>
 
-          {/* Col 3 – Contact */}
           <div className={styles.footerCol}>
             <h4 className={styles.footerColHeading}>Contact</h4>
             <ul className={styles.footerLinks}>
-              <li><a href="mailto:mega89956@gmail.com">linkspherexco@gmail.com</a></li>
+              <li><a href="mailto:linkspherexco@gmail.com">linkspherexco@gmail.com</a></li>
               <li><span> Patiala, Punjab, India</span></li>
             </ul>
           </div>
 
-          {/* Col 4 – Contributors */}
           <div className={styles.footerCol}>
             <h4 className={styles.footerColHeading}>Contributors</h4>
             <ul className={styles.footerLinks}>
               {COLLABORATORS.map((c) => (
                 <li key={c.handle}>
-                  <a
-                    href={`https://github.com/${c.handle}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={styles.contributorLink}
-                  >
+                  <a href={`https://github.com/${c.handle}`} target="_blank" rel="noreferrer" className={styles.contributorLink}>
                     <span className={styles.contributorAvatar}>{c.initials}</span>
                     {c.name}
                   </a>
@@ -332,11 +287,9 @@ export default function Landing() {
               ))}
             </ul>
           </div>
-
         </div>
 
-        {/* Giant wordmark */}
-        <div className={styles.footerWordmark}>LinkSphere</div>
+
         <div className={styles.footerBottom}>
           <p>© 2025 LinkSphere · Built with Node.js &amp; React</p>
         </div>

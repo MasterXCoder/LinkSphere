@@ -5,7 +5,9 @@ import AuthForm from "../components/AuthForm";
 const SIGNUP_FIELDS = [
   { name: "username", label: "Username", type: "text", placeholder: "Choose a username" },
   { name: "email", label: "Email", type: "email", placeholder: "you@example.com" },
+  { name: "dob", label: "Date of Birth", type: "date", placeholder: "" },
   { name: "password", label: "Password", type: "password", placeholder: "Create a password" },
+  { name: "confirmPassword", label: "Confirm Password", type: "password", placeholder: "Confirm your password" }
 ];
 
 export default function Signup() {
@@ -15,13 +17,21 @@ export default function Signup() {
 
   const handleSignup = async (data) => {
     setError("");
+    
+    if (data.password !== data.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
 
     try {
+      const { confirmPassword, ...payload } = data;
+
       const res = await fetch("http://localhost:8000/api/users/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
@@ -44,7 +54,7 @@ export default function Signup() {
       title="Create account"
       subtitle="Join LinkSphere and start connecting"
       fields={SIGNUP_FIELDS}
-      submitLabel="Create Account"
+      submitLabel={loading ? "Creating Account..." : "Create Account"}
       onSubmit={handleSignup}
       footerText="Already have an account?"
       footerLink="/login"
