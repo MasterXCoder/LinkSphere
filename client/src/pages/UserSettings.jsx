@@ -47,8 +47,13 @@ export default function UserSettings({ onClose }) {
         return;
       }
 
+      const loginData = await loginRes.json();
+      const newToken = loginData.token;
+
+      // Update the token in localStorage so the user doesn't get logged out randomly
+      localStorage.setItem("token", newToken);
+
       // 2. Perform the update
-      const token = localStorage.getItem("token");
       const userId = localStorage.getItem("userId");
       const body = {};
       if (editMode === 'username') body.username = editValue;
@@ -58,7 +63,7 @@ export default function UserSettings({ onClose }) {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${newToken}`
         },
         body: JSON.stringify(body)
       });
