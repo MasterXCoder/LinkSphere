@@ -1,9 +1,9 @@
 [
   {
     "id": 1,
-    "username": "toor",
+    "username": "toorsaab",
     "email": "toor@gmail.com",
-    "password": "oggy1234"
+    "password": "789456"
   },
   {
     "id": 2,
@@ -69,7 +69,7 @@
   {
     "id": 1772648259005,
     "username": "Vansh",
-    "email": "vansh@gmail.com",
+    "email": "vansh24@gmail.com",
     "dob": "2005-02-06",
     "password": "456"
   }
