@@ -7,7 +7,7 @@ const router = express.Router();
 const verifyToken = require("../middleware/authMiddleware");
 const { signup, login, getUser, updateUser, deleteUser } = require("../controllers/userController");
 
-// ── Public routes ─────────────────────────────────────────────────────────────
+// ── Public routes     ─────────────────────────────────────────────────────────────
 router.post("/signup", signup);
 router.post("/login",  login);
 

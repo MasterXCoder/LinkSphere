@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import Logo from "./Logo";
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
@@ -8,12 +9,19 @@ export default function Navbar() {
   return (
     <nav className={styles.navbar}>
       <Link to="/" className={styles.logo}>
-        <span className={styles.logoIcon}>◈</span>
-        <span className={styles.logoText}>LinkSphere</span>
+        <Logo size={22} />
       </Link>
 
       <div className={styles.links}>
-        {!isAuth && (
+        {isAuth ? (
+          <Link to="/" className={styles.loginBtn}>
+            Back to home
+          </Link>
+        ) : localStorage.getItem("token") ? (
+          <Link to="/app" className={styles.signupBtn}>
+            Enter the Sphere →
+          </Link>
+        ) : (
           <>
             <Link to="/login" className={styles.loginBtn}>
               Log In
@@ -22,11 +30,6 @@ export default function Navbar() {
               Sign Up
             </Link>
           </>
-        )}
-        {isAuth && (
-          <Link to="/" className={styles.loginBtn}>
-            Back to home
-          </Link>
         )}
       </div>
     </nav>

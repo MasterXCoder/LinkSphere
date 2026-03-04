@@ -1,0 +1,45 @@
+[
+  {
+    "id": 1772584644419,
+    "name": "madhav's server",
+    "inviteCode": "95222de6",
+    "ownerId": 1772577082796,
+    "members": [
+      1772577082796
+    ],
+    "channels": [
+      {
+        "id": "ch_1772584644419_1",
+        "name": "general",
+        "type": "text"
+      },
+      {
+        "id": "ch_1772584644419_2",
+        "name": "random",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": 1772612975590,
+    "name": "Vanshika's server",
+    "inviteCode": "41563df2",
+    "ownerId": 1772610625541,
+    "members": [
+      1772610625541,
+      1772605128955
+    ],
+    "channels": [
+      {
+        "id": "ch_1772612975590_1",
+        "name": "general",
+        "type": "text"
+      },
+      {
+        "id": "ch_1772612975590_2",
+        "name": "random",
+        "type": "text"
+      }
+    ]
+  }
+]

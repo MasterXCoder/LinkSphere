@@ -1,16 +1,22 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AuthForm from "../components/AuthForm";
 
 const SIGNUP_FIELDS = [
-  { name: "username", label: "Username", type: "text",     placeholder: "Choose a username" },
-  { name: "email",    label: "Email",    type: "email",    placeholder: "you@example.com"   },
+  { name: "username", label: "Username", type: "text", placeholder: "Choose a username" },
+  { name: "email", label: "Email", type: "email", placeholder: "you@example.com" },
   { name: "password", label: "Password", type: "password", placeholder: "Create a password" },
 ];
 
 export default function Signup() {
   const navigate = useNavigate();
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSignup = async (data) => {
+    setError("");
+    setLoading(true);
+
     try {
       const res = await fetch("http://localhost:8000/api/users/signup", {
         method: "POST",
@@ -18,16 +24,18 @@ export default function Signup() {
         body: JSON.stringify(data),
       });
 
+      const json = await res.json();
+
       if (res.ok) {
-        // Account created — redirect to login so user authenticates and gets a token
         navigate("/login");
       } else {
-        const err = await res.json();
-        alert(err.error || "Signup failed. Please try again.");
+        setError(json.error || "Signup failed. Please try again.");
       }
-    } catch (error) {
-      console.error("Signup error:", error);
-      alert("Could not connect to server.");
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError("Could not connect to server. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -41,6 +49,8 @@ export default function Signup() {
       footerText="Already have an account?"
       footerLink="/login"
       footerLinkText="Log in"
+      error={error}
+      loading={loading}
     />
   );
 }

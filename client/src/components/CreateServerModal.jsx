@@ -8,13 +8,17 @@ const templates = [
     { icon: "🏫", label: 'School Club' },
 ];
 
-const CreateServerModal = ({ onClose }) => {
+const API = "http://localhost:8000/api";
+
+const CreateServerModal = ({ onClose, onCreated }) => {
     // Current view within the modal ('main', 'tellUsMore', 'customize', 'join')
     const [currentView, setCurrentView] = useState('main');
+    const [joinError, setJoinError] = useState('');
+    const [joinLoading, setJoinLoading] = useState(false);
 
     // State for the customize screen
     const [selectedFile, setSelectedFile] = useState(null);
-    const [serverName, setServerName] = useState("Ishpreet Singh's server");
+    const [serverName, setServerName] = useState(`${localStorage.getItem("username") || "My"}'s server`);
 
     // State for the join screen
     const [inviteLink, setInviteLink] = useState('');
@@ -22,8 +26,8 @@ const CreateServerModal = ({ onClose }) => {
     const fileInputRef = useRef(null);
 
     // Icons
-    const CouchIcon = () => <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-5.522 0-10 4.477-10 10s4.478 10 10 10 10-4.477 10-10-4.478-10-10-10zM12 20c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zM15 11.5c.828 0 1.5.672 1.5 1.5s-.672 1.5-1.5 1.5-1.5-.672-1.5-1.5.672-1.5 1.5-1.5zM9 11.5c.828 0 1.5.672 1.5 1.5s-.672 1.5-1.5 1.5-1.5-.672-1.5-1.5.672-1.5 1.5-1.5zM12 17c-2.206 0-4-1.794-4-4h8c0 2.206-1.794 4-4 4z"/></svg>;
-    const EarthIcon = () => <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-5.522 0-10 4.477-10 10s4.478 10 10 10 10-4.477 10-10-4.478-10-10-10zM12 20c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zM12 11c1.103 0 2 .897 2 2s-.897 2-2 2-2-.897-2-2 .897-2 2-2z"/></svg>;
+    const CouchIcon = () => <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-5.522 0-10 4.477-10 10s4.478 10 10 10 10-4.477 10-10-4.478-10-10-10zM12 20c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zM15 11.5c.828 0 1.5.672 1.5 1.5s-.672 1.5-1.5 1.5-1.5-.672-1.5-1.5.672-1.5 1.5-1.5zM9 11.5c.828 0 1.5.672 1.5 1.5s-.672 1.5-1.5 1.5-1.5-.672-1.5-1.5.672-1.5 1.5-1.5zM12 17c-2.206 0-4-1.794-4-4h8c0 2.206-1.794 4-4 4z" /></svg>;
+    const EarthIcon = () => <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-5.522 0-10 4.477-10 10s4.478 10 10 10 10-4.477 10-10-4.478-10-10-10zM12 20c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zM12 11c1.103 0 2 .897 2 2s-.897 2-2 2-2-.897-2-2 .897-2 2-2z" /></svg>;
     const UploadIcon = () => <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2zM12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19x12 23M8 23h8" /></svg>;
 
     const handleUploadClick = () => fileInputRef.current.click();
@@ -33,16 +37,68 @@ const CreateServerModal = ({ onClose }) => {
         if (file) setSelectedFile(URL.createObjectURL(file));
     };
 
-    const handleFinalCreate = () => {
-        console.log('Creating Server:', serverName, selectedFile);
-        alert(`Server created! Name: ${serverName}`);
-        onClose();
+    const handleFinalCreate = async () => {
+        if (!serverName.trim()) return;
+        try {
+            const res = await fetch(`${API}/servers`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+                body: JSON.stringify({ name: serverName }),
+            });
+            if (res.ok) {
+                onCreated?.();
+                onClose();
+            } else {
+                const data = await res.json();
+                alert(data.error || "Failed to create server");
+            }
+        } catch (err) {
+            alert("Could not connect to server");
+        }
     }
 
+    // Extract invite code from URL or raw code
+    const extractInviteCode = (input) => {
+        const trimmed = input.trim();
+        const urlMatch = trimmed.match(/\/invite\/([a-zA-Z0-9]+)$/);
+        if (urlMatch) return urlMatch[1];
+        return trimmed;
+    };
+
+    const handleJoinServer = async () => {
+        const code = extractInviteCode(inviteLink);
+        if (!code) return;
+        setJoinError('');
+        setJoinLoading(true);
+
+        try {
+            const res = await fetch(`${API}/servers/invite/${code}/join`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+            });
+            const data = await res.json();
+            if (res.ok) {
+                onCreated?.();
+                onClose();
+            } else {
+                setJoinError(data.error || "Failed to join server");
+            }
+        } catch (err) {
+            setJoinError("Could not connect to server");
+        } finally {
+            setJoinLoading(false);
+        }
+    };
     return (
         <div className={styles.overlay} onClick={onClose}>
             <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-                
+
                 <button className={styles.closeButton} onClick={onClose}>
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"></path></svg>
                 </button>
@@ -112,7 +168,7 @@ const CreateServerModal = ({ onClose }) => {
                                 </div>
                                 <svg className={styles.arrowIcon} viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"></path></svg>
                             </button>
-                            
+
                             <p className={styles.skipDesc}>
                                 Not sure? You can <span className={styles.skipLink} onClick={() => setCurrentView('customize')}>skip this question</span> for now.
                             </p>
@@ -147,11 +203,11 @@ const CreateServerModal = ({ onClose }) => {
 
                             <div className={styles.inputGroup}>
                                 <label className={styles.inputLabel}>SERVER NAME <span className={styles.asterisk}>*</span></label>
-                                <input 
-                                    type="text" 
-                                    className={styles.inputField} 
-                                    value={serverName} 
-                                    onChange={(e) => setServerName(e.target.value)} 
+                                <input
+                                    type="text"
+                                    className={styles.inputField}
+                                    value={serverName}
+                                    onChange={(e) => setServerName(e.target.value)}
                                 />
                             </div>
 
@@ -159,7 +215,7 @@ const CreateServerModal = ({ onClose }) => {
                                 By creating a server, you agree to Discord's <span className={styles.blueLink}>Community Guidelines</span>.
                             </p>
                         </div>
-                        
+
                         <div className={styles.footerWithFlex}>
                             <button className={styles.backButton} onClick={() => setCurrentView('tellUsMore')}>Back</button>
                             <button className={styles.actionBtn} onClick={handleFinalCreate}>Create</button>
@@ -180,27 +236,26 @@ const CreateServerModal = ({ onClose }) => {
                                 <label className={styles.inputLabel}>
                                     Invite link <span className={styles.asterisk}>*</span>
                                 </label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     className={styles.inputField}
-                                    placeholder="https://discord.gg/hTKzmak"
+                                    placeholder="https://linksphere.app/invite/hTKzmak"
                                     value={inviteLink}
-                                    onChange={(e) => setInviteLink(e.target.value)}
+                                    onChange={(e) => { setInviteLink(e.target.value); setJoinError(''); }}
                                 />
                             </div>
 
                             <div className={styles.examplesSection}>
                                 <h3 className={styles.examplesTitle}>Invites should look like</h3>
                                 <div className={styles.tagsContainer}>
-                                    <span className={styles.tag}>hTKzmak</span>
-                                    <span className={styles.tag}>https://discord.gg/hTKzmak</span>
-                                    <span className={styles.tag}>https://discord.gg/wumpus-friends</span>
+                                    <span className={styles.tag}>a1b2c3d4</span>
+                                    <span className={styles.tag}>http://localhost:5173/invite/a1b2c3d4</span>
                                 </div>
                             </div>
 
                             <div className={styles.discoverBlock}>
                                 <div className={styles.discoverIconWrapper}>
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm-2.73-6.65L16.5 8.5 9.68 15.35c.16.24.41.49.65.65h-1.06zM8.5 16.5l6.85-7.18c-.24-.16-.49-.41-.65-.65L7.82 15.44z"/></svg>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm-2.73-6.65L16.5 8.5 9.68 15.35c.16.24.41.49.65.65h-1.06zM8.5 16.5l6.85-7.18c-.24-.16-.49-.41-.65-.65L7.82 15.44z" /></svg>
                                 </div>
                                 <div className={styles.discoverTextContainer}>
                                     <div className={styles.discoverTitle}>Don't have an invite?</div>
@@ -211,9 +266,14 @@ const CreateServerModal = ({ onClose }) => {
                         </div>
 
                         <div className={styles.footerWithFlex}>
-                            <button className={styles.backButton} onClick={() => setCurrentView('main')}>Back</button>
-                            <button className={`${styles.actionBtn} ${inviteLink ? styles.actionActive : styles.actionDisabled}`}>
-                                Join Server
+                            <button className={styles.backButton} onClick={() => { setCurrentView('main'); setJoinError(''); }}>Back</button>
+                            {joinError && <span style={{ color: '#f38688', fontSize: '0.8rem', flex: 1, textAlign: 'center' }}>{joinError}</span>}
+                            <button
+                                className={`${styles.actionBtn} ${inviteLink ? styles.actionActive : styles.actionDisabled}`}
+                                onClick={handleJoinServer}
+                                disabled={!inviteLink.trim() || joinLoading}
+                            >
+                                {joinLoading ? 'Joining...' : 'Join Server'}
                             </button>
                         </div>
                     </div>

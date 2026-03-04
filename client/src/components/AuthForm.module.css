@@ -1,80 +1,141 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap');
 
+/* ── Full-page wrapper with blurple gradient ── */
 .wrapper {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem 1.5rem;
-  background: #111214;
-  font-family: 'Noto Sans', 'Helvetica Neue', Arial, sans-serif;
+  background: linear-gradient(135deg,
+      #2c2078 0%,
+      #3a2a9e 25%,
+      #5865f2 55%,
+      #4752c4 80%,
+      #2c2078 100%);
+  font-family: 'Outfit', 'Helvetica Neue', Arial, sans-serif;
+  position: relative;
+  overflow: hidden;
 }
 
+/* ── Star field ── */
+.starField {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.star {
+  position: absolute;
+  background: #fff;
+  border-radius: 50%;
+  opacity: 0;
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+}
+
+/* ── Frosted glass card ── */
 .card {
   width: 100%;
-  max-width: 400px;
-  background: #1e1f22;
-  border: 1px solid #2e3035;
-  border-radius: 4px;
-  padding: 2rem 2rem 1.5rem;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  max-width: 440px;
+  background: rgba(30, 31, 34, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 2.5rem 2.5rem 2rem;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  position: relative;
+  z-index: 1;
+  animation: cardIn 0.5s ease forwards;
 }
 
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Branding ── */
 .brandMark {
-  font-size: 1.6rem;
+  font-size: 1.8rem;
   color: #5865f2;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   display: block;
   text-align: center;
+  filter: drop-shadow(0 0 12px rgba(88, 101, 242, 0.4));
 }
 
 .title {
-  font-weight: 700;
-  font-size: 1.4rem;
-  color: #f2f3f5;
+  font-weight: 800;
+  font-size: 1.5rem;
+  color: #fff;
   margin-bottom: 0.3rem;
   text-align: center;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .subtitle {
-  color: #b5bac1;
-  font-size: 0.85rem;
-  margin-bottom: 1.5rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.88rem;
+  margin-bottom: 1.6rem;
   text-align: center;
   font-weight: 400;
 }
 
+/* ── Form ── */
 .form {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .label {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  color: #b5bac1;
+  color: rgba(255, 255, 255, 0.6);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
 
 .input {
-  background: #2b2d31;
-  border: 1px solid #1e1f22;
-  border-radius: 3px;
-  padding: 0.65rem 0.875rem;
-  color: #dbdee1;
-  font-size: 0.9rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: #fff;
+  font-size: 0.92rem;
   font-family: inherit;
   font-weight: 400;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
   outline: none;
   width: 100%;
   box-sizing: border-box;
@@ -82,58 +143,144 @@
 
 .input:focus {
   border-color: #5865f2;
-  box-shadow: 0 0 0 2px rgba(88,101,242,0.2);
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.25);
+  background: rgba(0, 0, 0, 0.35);
 }
 
 .input::placeholder {
-  color: #6d6f78;
+  color: rgba(255, 255, 255, 0.25);
 }
 
+/* ── Error message ── */
+.errorBox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  background: rgba(237, 66, 69, 0.12);
+  border: 1px solid rgba(237, 66, 69, 0.3);
+  border-radius: 8px;
+  color: #f38688;
+  font-size: 0.82rem;
+  font-weight: 500;
+  animation: shakeIn 0.4s ease;
+}
+
+.errorIcon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+@keyframes shakeIn {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-6px);
+  }
+
+  40% {
+    transform: translateX(6px);
+  }
+
+  60% {
+    transform: translateX(-4px);
+  }
+
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+/* ── Submit button ── */
 .submitBtn {
   margin-top: 0.5rem;
-  padding: 0.72rem;
+  padding: 0.8rem;
   background: #5865f2;
   color: #fff;
   border: none;
-  border-radius: 3px;
-  font-size: 0.9rem;
-  font-weight: 500;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, transform 0.12s;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
   width: 100%;
+  position: relative;
+  box-shadow: 0 4px 15px rgba(88, 101, 242, 0.3);
 }
 
-.submitBtn:hover {
+.submitBtn:hover:not(:disabled) {
   background: #4752c4;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(88, 101, 242, 0.4);
 }
 
-.submitBtn:active {
+.submitBtn:active:not(:disabled) {
   transform: translateY(0);
 }
 
-/* divider line */
-.divider {
-  height: 1px;
-  background: #2e3035;
-  margin: 1.25rem -2rem 1.25rem;
+.submitBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
+/* loading spinner */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+  margin-right: 0.4rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Divider ── */
+.divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 1.5rem 0;
+}
+
+/* ── Footer link ── */
 .footer {
   text-align: center;
   font-size: 0.84rem;
-  color: #6d6f78;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .footerLink {
   color: #00a8fc;
   font-weight: 500;
   text-decoration: none;
-  transition: color 0.15s, text-decoration 0.15s;
+  transition: color 0.15s;
 }
 
 .footerLink:hover {
   text-decoration: underline;
-  color: #00b8ff;
+  color: #00c8ff;
+}
+
+/* ── Responsive ── */
+@media (max-width: 520px) {
+  .card {
+    padding: 2rem 1.5rem 1.5rem;
+    border-radius: 12px;
+  }
+
+  .title {
+    font-size: 1.3rem;
+  }
 }

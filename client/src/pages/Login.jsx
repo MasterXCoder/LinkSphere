@@ -1,15 +1,21 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AuthForm from "../components/AuthForm";
 
 const LOGIN_FIELDS = [
-  { name: "email",    label: "Email",    type: "email",    placeholder: "you@example.com" },
-  { name: "password", label: "Password", type: "password", placeholder: "Your password"   },
+  { name: "email", label: "Email", type: "email", placeholder: "you@example.com" },
+  { name: "password", label: "Password", type: "password", placeholder: "Your password" },
 ];
 
 export default function Login() {
   const navigate = useNavigate();
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (data) => {
+    setError("");
+    setLoading(true);
+
     try {
       const res = await fetch("http://localhost:8000/api/users/login", {
         method: "POST",
@@ -17,18 +23,22 @@ export default function Login() {
         body: JSON.stringify(data),
       });
 
+      const json = await res.json();
+
       if (res.ok) {
-        const json = await res.json();
-        // Store JWT token for use in protected requests
         localStorage.setItem("token", json.token);
+        localStorage.setItem("userId", json.user.id);
+        localStorage.setItem("username", json.user.username);
+        localStorage.setItem("email", json.user.email);
         navigate("/app");
       } else {
-        const err = await res.json();
-        alert(err.error || "Login failed. Check your credentials.");
+        setError(json.error || "Login failed. Check your credentials.");
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      alert("Could not connect to server.");
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Could not connect to server. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -42,6 +52,8 @@ export default function Login() {
       footerText="Don't have an account?"
       footerLink="/signup"
       footerLinkText="Sign up"
+      error={error}
+      loading={loading}
     />
   );
 }

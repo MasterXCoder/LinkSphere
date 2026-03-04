@@ -1,13 +1,18 @@
 // User Controller
 // Uses flat-file JSON storage (no database)
 // Passwords stored as plain text (no hashing) — for learning purposes
-
+const dotenv = require("dotenv");
 const fs = require("fs");
 const path = require("path");
 const jwt = require("jsonwebtoken");
+dotenv.config();
+const SECRET = process.env.JWT_SECRET;
 
-const SECRET = "linksphere_secret_key";
-const usersFilePath = path.join(__dirname, "../../users.json");
+// Path to the users data file
+const usersFilePath = path.join(__dirname, "../../data/users.json");
+
+
+// ─── File Helpers ────────────────────────────────────────────────────────────
 
 const getUsers = () => {
   if (!fs.existsSync(usersFilePath)) {
@@ -78,6 +83,7 @@ const login = async (req, res) => {
   res.status(200).json({
     message: "Login successful",
     token,
+    user: { id: user.id, username: user.username, email: user.email },
   });
 };
 
@@ -118,7 +124,7 @@ const updateUser = (req, res) => {
   }
 
   if (username) users[userIndex].username = username;
-  if (email)    users[userIndex].email    = email;
+  if (email) users[userIndex].email = email;
   if (password) users[userIndex].password = password; // plain text
 
   saveUsers(users);
@@ -126,9 +132,9 @@ const updateUser = (req, res) => {
   res.status(200).json({
     message: "User updated successfully",
     user: {
-      id:       users[userIndex].id,
+      id: users[userIndex].id,
       username: users[userIndex].username,
-      email:    users[userIndex].email,
+      email: users[userIndex].email,
     },
   });
 };
