@@ -24,5 +24,61 @@
     "content": "hell ueah",
     "type": "user",
     "timestamp": "2026-03-04T01:37:17.606Z"
+  },
+  {
+    "id": 1772612975591,
+    "serverId": 1772612975590,
+    "channelId": "ch_1772612975590_1",
+    "type": "system",
+    "content": "Vanshika created the server. Welcome!",
+    "timestamp": "2026-03-04T08:29:35.591Z"
+  },
+  {
+    "id": 1772613064203,
+    "serverId": 1772612975590,
+    "channelId": "ch_1772612975590_1",
+    "type": "system",
+    "content": "kansh joined the server. Welcome!",
+    "timestamp": "2026-03-04T08:31:04.203Z"
+  },
+  {
+    "id": 1772613072530,
+    "serverId": 1772612975590,
+    "channelId": "ch_1772612975590_1",
+    "authorId": 1772605128955,
+    "authorName": "kansh",
+    "content": "hello",
+    "type": "user",
+    "timestamp": "2026-03-04T08:31:12.530Z"
+  },
+  {
+    "id": 1772613077828,
+    "serverId": 1772612975590,
+    "channelId": "ch_1772612975590_1",
+    "authorId": 1772610625541,
+    "authorName": "Vanshika",
+    "content": "bye",
+    "type": "user",
+    "timestamp": "2026-03-04T08:31:17.828Z"
+  },
+  {
+    "id": 1772613412428,
+    "serverId": 1772612975590,
+    "channelId": "ch_1772612975590_1",
+    "authorId": 1772605128955,
+    "authorName": "kansh",
+    "content": "gand marale",
+    "type": "user",
+    "timestamp": "2026-03-04T08:36:52.428Z"
+  },
+  {
+    "id": 1772613429017,
+    "serverId": 1772612975590,
+    "channelId": "ch_1772612975590_1",
+    "authorId": 1772610625541,
+    "authorName": "Vanshika",
+    "content": "kyu tu marega na",
+    "type": "user",
+    "timestamp": "2026-03-04T08:37:09.017Z"
   }
 ]
