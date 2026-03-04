@@ -12,7 +12,7 @@ export default function UserSettings({ onClose }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [successToast, setSuccessToast] = useState("");
 
   // User details state (so we can update them in the UI without refresh)
   const [currentUsername, setCurrentUsername] = useState(username);
@@ -24,6 +24,14 @@ export default function UserSettings({ onClose }) {
   const [editPassword, setEditPassword] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState("");
+
+  // Change Password state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordCurrent, setPasswordCurrent] = useState("");
+  const [passwordNew, setPasswordNew] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
 
   const maskedEmail = currentEmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => a + '*'.repeat(b.length) + c);
 
@@ -72,16 +80,19 @@ export default function UserSettings({ onClose }) {
         if (editMode === 'username') {
           localStorage.setItem("username", editValue);
           setCurrentUsername(editValue);
+          setSuccessToast("Username successfully updated!");
         }
         if (editMode === 'email') {
           localStorage.setItem("email", editValue);
           setCurrentEmail(editValue);
+          setSuccessToast("Email successfully updated!");
         }
 
         // Show lightweight toast or just close
         setEditMode(null);
         setEditValue("");
         setEditPassword("");
+        setTimeout(() => setSuccessToast(""), 3000);
       } else {
         const json = await updateRes.json();
         setEditError(json.error || "Failed to update profile.");
@@ -91,6 +102,72 @@ export default function UserSettings({ onClose }) {
       setEditError("Could not connect to server.");
     } finally {
       setEditLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError("");
+    setSuccessToast(""); // Clear any previous success toast
+
+    if (passwordNew !== passwordConfirm) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+    if (passwordNew.length < 6) {
+      setPasswordError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      // 1. Verify current password via login endpoint
+      const cachedEmail = localStorage.getItem("email");
+      const loginRes = await fetch("http://localhost:8000/api/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cachedEmail, password: passwordCurrent })
+      });
+
+      if (!loginRes.ok) {
+        setPasswordError("Current password is incorrect.");
+        setPasswordLoading(false);
+        return;
+      }
+
+      const loginData = await loginRes.json();
+      const newToken = loginData.token;
+      localStorage.setItem("token", newToken);
+
+      // 2. Perform the update with new password
+      const userId = localStorage.getItem("userId");
+      const updateRes = await fetch(`http://localhost:8000/api/users/${userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${newToken}`
+        },
+        body: JSON.stringify({ password: passwordNew })
+      });
+
+      if (updateRes.ok) {
+        setShowPasswordModal(false);
+        setPasswordCurrent("");
+        setPasswordNew("");
+        setPasswordConfirm("");
+        setSuccessToast("Password successfully changed!");
+        // No logout needed for changing password, but the session is authenticated
+        setTimeout(() => setSuccessToast(""), 3000);
+      } else {
+        const json = await updateRes.json();
+        setPasswordError(json.error || "Failed to update password.");
+      }
+    } catch (err) {
+      console.error(err);
+      setPasswordError("Could not connect to server.");
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -110,7 +187,7 @@ export default function UserSettings({ onClose }) {
 
       if (res.ok) {
         setShowDeleteConfirm(false);
-        setShowSuccessToast(true);
+        setSuccessToast("Account deleted successfully! Redirecting...");
         setTimeout(() => {
           handleLogout();
         }, 2000);
@@ -265,7 +342,7 @@ export default function UserSettings({ onClose }) {
           {/* Password and Authentication */}
           <div className={styles.sectionContainer}>
             <h2 className={styles.sectionTitle}>Password and Authentication</h2>
-            <button className={styles.primaryBtn}>Change Password</button>
+            <button className={styles.primaryBtn} onClick={() => { setShowPasswordModal(true); setPasswordError(""); }}>Change Password</button>
           </div>
 
           <div className={styles.sectionDivider}></div>
@@ -379,11 +456,78 @@ export default function UserSettings({ onClose }) {
         </div>
       )}
 
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h3 className={styles.modalTitle}>Change your password</h3>
+            <p className={styles.modalText} style={{ marginBottom: '20px' }}>
+              Enter your current password and a new password.
+            </p>
+            <form onSubmit={handleChangePassword}>
+              <div className={styles.formGroup}>
+                <label className={styles.inputLabel}>CURRENT PASSWORD</label>
+                <input
+                  type="password"
+                  className={styles.inputField}
+                  value={passwordCurrent}
+                  onChange={(e) => setPasswordCurrent(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.inputLabel}>NEW PASSWORD</label>
+                <input
+                  type="password"
+                  className={styles.inputField}
+                  value={passwordNew}
+                  onChange={(e) => setPasswordNew(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.inputLabel}>CONFIRM NEW PASSWORD</label>
+                <input
+                  type="password"
+                  className={styles.inputField}
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  required
+                />
+              </div>
+
+              {passwordError && <div className={styles.errorText}>{passwordError}</div>}
+
+              <div className={styles.modalActions} style={{ marginTop: '24px' }}>
+                <button
+                  type="button"
+                  className={styles.cancelLinkBtn}
+                  onClick={() => { setShowPasswordModal(false); setPasswordError(""); setPasswordCurrent(""); setPasswordNew(""); setPasswordConfirm(""); }}
+                  disabled={passwordLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.confirmEditBtn}
+                  disabled={passwordLoading || !passwordCurrent || !passwordNew || !passwordConfirm}
+                >
+                  {passwordLoading ? "Saving..." : "Done"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Success Toast */}
-      {showSuccessToast && (
+      {successToast && (
         <div className={styles.successToast}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-          Account deleted successfully! Redirecting...
+          {successToast}
         </div>
       )}
     </div>
