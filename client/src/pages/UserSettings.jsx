@@ -10,6 +10,7 @@ export default function UserSettings({ onClose }) {
   // Mask email for display
   const [showEmail, setShowEmail] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [successToast, setSuccessToast] = useState("");
@@ -171,17 +172,35 @@ export default function UserSettings({ onClose }) {
     }
   };
 
-  const handleDeleteAccount = async () => {
+  const handleDeleteAccount = async (e) => {
+    e.preventDefault();
     setIsDeleting(true);
     setDeleteError("");
-    const token = localStorage.getItem("token");
-    const userId = localStorage.getItem("userId");
 
     try {
+      // 1. Verify password via login endpoint
+      const cachedEmail = localStorage.getItem("email");
+      const loginRes = await fetch("http://localhost:8000/api/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cachedEmail, password: deletePassword })
+      });
+
+      if (!loginRes.ok) {
+        setDeleteError("Password does not match.");
+        setIsDeleting(false);
+        return;
+      }
+
+      const loginData = await loginRes.json();
+      const newToken = loginData.token;
+
+      // 2. Perform the delete with fresh valid token
+      const userId = localStorage.getItem("userId");
       const res = await fetch(`http://localhost:8000/api/users/${userId}`, {
         method: "DELETE",
         headers: {
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${newToken}`
         }
       });
 
@@ -374,26 +393,41 @@ export default function UserSettings({ onClose }) {
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
             <h3 className={styles.modalTitle}>Delete Account</h3>
-            <p className={styles.modalText}>
-              Are you sure you want to delete your account? This action cannot be undone.
+            <p className={styles.modalText} style={{ marginBottom: '20px' }}>
+              Are you sure you want to delete your account? This action cannot be undone. Please enter your password to confirm.
             </p>
-            {deleteError && <div className={styles.errorText}>{deleteError}</div>}
-            <div className={styles.modalActions}>
-              <button
-                className={styles.cancelBtn}
-                onClick={() => { setShowDeleteConfirm(false); setDeleteError(""); }}
-                disabled={isDeleting}
-              >
-                Cancel
-              </button>
-              <button
-                className={styles.confirmDeleteBtn}
-                onClick={handleDeleteAccount}
-                disabled={isDeleting}
-              >
-                {isDeleting ? "Deleting..." : "Delete Account"}
-              </button>
-            </div>
+            <form onSubmit={handleDeleteAccount}>
+              <div className={styles.formGroup}>
+                <label className={styles.inputLabel}>PASSWORD</label>
+                <input
+                  type="password"
+                  className={styles.inputField}
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              {deleteError && <div className={styles.errorText}>{deleteError}</div>}
+              <div className={styles.modalActions} style={{ marginTop: '24px' }}>
+                <button
+                  type="button"
+                  className={styles.cancelLinkBtn}
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteError(""); setDeletePassword(""); }}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.confirmDeleteBtn}
+                  disabled={isDeleting || !deletePassword}
+                >
+                  {isDeleting ? "Deleting..." : "Delete Account"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
