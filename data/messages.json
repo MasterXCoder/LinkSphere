@@ -44,5 +44,23 @@
     "content": "hello",
     "type": "user",
     "timestamp": "2026-03-05T00:19:57.146Z"
+  },
+  {
+    "id": 1772670313781,
+    "serverId": 1772584644419,
+    "channelId": "ch_1772584644419_1",
+    "type": "system",
+    "content": "madhav joined the server. Welcome!",
+    "timestamp": "2026-03-05T00:25:13.781Z"
+  },
+  {
+    "id": 1772670318260,
+    "serverId": 1772584644419,
+    "channelId": "ch_1772584644419_1",
+    "authorId": 1772582763264,
+    "authorName": "madhav",
+    "content": "hello",
+    "type": "user",
+    "timestamp": "2026-03-05T00:25:18.260Z"
   }
 ]

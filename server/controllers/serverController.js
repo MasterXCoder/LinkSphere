@@ -373,7 +373,18 @@ const getChannelMessages = (req, res) => {
         (m) => m.serverId == id && m.channelId === channelId
     );
 
-    res.json(channelMessages);
+    // Resolve current usernames from users.json so name changes are reflected
+    const users = getUsers();
+    const messagesWithCurrentNames = channelMessages.map((msg) => {
+        if (msg.type === "system") return msg;
+        const author = users.find((u) => u.id === msg.authorId);
+        return {
+            ...msg,
+            authorName: author ? author.username : msg.authorName,
+        };
+    });
+
+    res.json(messagesWithCurrentNames);
 };
 
 
