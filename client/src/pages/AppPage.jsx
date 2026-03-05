@@ -30,6 +30,12 @@ export default function AppPage() {
   const username = user?.username || "User";
   const userId = user?.id || 0;
 
+  // ── Refs ──
+  const chatEndRef = useRef(null);
+  const pollRef = useRef(null);
+  const userPopupRef = useRef(null);
+  const mainAreaRef = useRef(null); // Ref for tracking cursor position
+
   // ── State ──
   const [servers, setServers] = useState([]);
   const [activeServer, setActiveServer] = useState("home");
@@ -48,9 +54,17 @@ export default function AppPage() {
   const [isDeafened, setIsDeafened] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('online');
 
-  const chatEndRef = useRef(null);
-  const pollRef = useRef(null);
-  const userPopupRef = useRef(null);
+  // ── Interaction Logic ──
+  const handleMouseMove = (e) => {
+    if (!mainAreaRef.current) return;
+    const { left, top } = mainAreaRef.current.getBoundingClientRect();
+    const x = e.clientX - left;
+    const y = e.clientY - top;
+    
+    // Set CSS variables for the dynamic glow effect
+    mainAreaRef.current.style.setProperty('--mouse-x', `${x}px`);
+    mainAreaRef.current.style.setProperty('--mouse-y', `${y}px`);
+  };
 
   const selectStatus = (key) => {
     setCurrentStatus(key);
@@ -115,7 +129,7 @@ export default function AppPage() {
     };
 
     fetchServerData();
-  }, [activeServer, token]); // Added token to dependencies for safety
+  }, [activeServer, token]);
 
   // ── Fetch messages for active channel + poll every 3s ──
   const fetchMessages = useCallback(async () => {
@@ -136,7 +150,6 @@ export default function AppPage() {
 
   useEffect(() => {
     fetchMessages();
-    // Poll every 3 seconds
     pollRef.current = setInterval(fetchMessages, 3000);
     return () => clearInterval(pollRef.current);
   }, [fetchMessages]);
@@ -175,7 +188,7 @@ export default function AppPage() {
 
   // ── Server created callback ──
   const onServerCreated = () => {
-    setIsServerModalOpen(false); // Ensure modal closes after successful creation
+    setIsServerModalOpen(false); 
     fetchServers();
   };
 
@@ -238,22 +251,18 @@ export default function AppPage() {
   // ── User Info Bar ──
   const UserInfoBar = () => (
     <footer className={styles.userInfo} style={{ position: 'relative' }}>
-      {/* User Profile Popup */}
       {showUserPopup && (
         <div ref={userPopupRef} className={styles.userPopup}>
-          {/* Banner + Avatar */}
           <div className={styles.userPopupBanner}>
             <div className={styles.userPopupAvatar}>
               {username.charAt(0).toUpperCase()}
               <div className={styles.userPopupStatusDot}></div>
             </div>
           </div>
-          {/* Name */}
           <div className={styles.userPopupNames}>
             <div className={styles.userPopupDisplayName}>{username}</div>
             <div className={styles.userPopupUsername}>{username.toLowerCase().replace(/\s/g, '_')}</div>
           </div>
-          {/* Actions */}
           <div className={styles.userPopupActions}>
             <button
               className={styles.userPopupItem}
@@ -347,7 +356,6 @@ export default function AppPage() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
           )}
         </button>
-        {/* Headphone / Deafen button */}
         <button
           type="button"
           className={`${styles.userIconBtn} ${isDeafened ? styles.userIconBtnDanger : ""}`}
@@ -370,7 +378,7 @@ export default function AppPage() {
           )}
         </button>
         <button type="button" className={styles.userIconBtn} title="User Settings" onClick={() => setShowSettings(true)}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         </button>
       </div>
     </footer>
@@ -401,7 +409,6 @@ export default function AppPage() {
             type="button"
             title={server.name}
             className={`${styles.serverIcon} ${activeServer === server.id ? styles.activeServer : ""}`}
-            /* Inline style to apply the solid color from the database */
             style={{ backgroundColor: server.color || "#5865f2" }}
             onClick={() => setActiveServer(server.id)}
           >
@@ -500,8 +507,14 @@ export default function AppPage() {
         <UserInfoBar />
       </aside>
 
-      {/* 3. MAIN AREA */}
-      <main className={styles.mainArea}>
+      {/* 3. MAIN AREA — INTEGRATED REF AND GLOW LAYER */}
+      <main 
+        className={styles.mainArea} 
+        ref={mainAreaRef} 
+        onMouseMove={handleMouseMove}
+      >
+        <div className={styles.dynamicGlow}></div> {/* Dynamic Background Layer */}
+        
         {activeServer === "home" ? (
           <>
             <header className={styles.topHeader}>
@@ -662,7 +675,7 @@ export default function AppPage() {
 
       {showSettings && <UserSettings onClose={() => setShowSettings(false)} />}
       
-      {/* --- ADDED SERVER MODAL GATEKEEPER --- */}
+      {/* SERVER MODAL GATEKEEPER */}
       {isServerModalOpen && (
         <CreateServerModal
           onClose={() => setIsServerModalOpen(false)}
