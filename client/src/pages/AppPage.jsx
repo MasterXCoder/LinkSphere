@@ -115,7 +115,7 @@ export default function AppPage() {
     };
 
     fetchServerData();
-  }, [activeServer]);
+  }, [activeServer, token]); // Added token to dependencies for safety
 
   // ── Fetch messages for active channel + poll every 3s ──
   const fetchMessages = useCallback(async () => {
@@ -175,6 +175,7 @@ export default function AppPage() {
 
   // ── Server created callback ──
   const onServerCreated = () => {
+    setIsServerModalOpen(false); // Ensure modal closes after successful creation
     fetchServers();
   };
 
@@ -369,7 +370,7 @@ export default function AppPage() {
           )}
         </button>
         <button type="button" className={styles.userIconBtn} title="User Settings" onClick={() => setShowSettings(true)}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         </button>
       </div>
     </footer>
@@ -393,12 +394,15 @@ export default function AppPage() {
 
         <div className={styles.divider} />
 
+        {/* --- DYNAMIC SERVER ICONS --- */}
         {servers.map((server) => (
           <button
             key={server.id}
             type="button"
             title={server.name}
             className={`${styles.serverIcon} ${activeServer === server.id ? styles.activeServer : ""}`}
+            /* Inline style to apply the solid color from the database */
+            style={{ backgroundColor: server.color || "#5865f2" }}
             onClick={() => setActiveServer(server.id)}
           >
             {server.name.charAt(0).toUpperCase()}
@@ -657,6 +661,8 @@ export default function AppPage() {
       </main>
 
       {showSettings && <UserSettings onClose={() => setShowSettings(false)} />}
+      
+      {/* --- ADDED SERVER MODAL GATEKEEPER --- */}
       {isServerModalOpen && (
         <CreateServerModal
           onClose={() => setIsServerModalOpen(false)}

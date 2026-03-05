@@ -10,6 +10,19 @@ const serversFilePath = path.join(__dirname, "../../data/servers.json");
 const messagesFilePath = path.join(__dirname, "../../data/messages.json");
 const usersFilePath = path.join(__dirname, "../../data/users.json");
 
+const SERVER_COLORS = [
+  "#5865F2", 
+  "#3BA55D", 
+  "#ED4245", 
+  "#FAA61A",
+  "#EB459E", 
+  "#7289DA", 
+  "#2C2F33", 
+  "#5562ea", 
+  "#202225", 
+  "#ffffff"  
+];
+
 // ─── File Helpers ────────────────────────────────────────────────────────────
 
 const readJSON = (filePath) => {
@@ -47,12 +60,16 @@ const createServer = (req, res) => {
 
     const servers = getServers();
 
+    // Select a random solid color for the new server
+    const randomColor = SERVER_COLORS[Math.floor(Math.random() * SERVER_COLORS.length)];
+
     const newServer = {
         id: Date.now(),
         name: name.trim(),
         inviteCode: generateInviteCode(),
         ownerId: userId,
         members: [userId],
+        color: randomColor, 
         channels: [
             { id: `ch_${Date.now()}_1`, name: "general", type: "text" },
             { id: `ch_${Date.now()}_2`, name: "random", type: "text" },

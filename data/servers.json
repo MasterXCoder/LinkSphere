@@ -20,5 +20,71 @@
         "type": "text"
       }
     ]
+  },
+  {
+    "id": 1772716012024,
+    "name": "mohit1268's server",
+    "inviteCode": "b3e68701",
+    "ownerId": 1772610625541,
+    "members": [
+      1772610625541
+    ],
+    "color": "#7289DA",
+    "channels": [
+      {
+        "id": "ch_1772716012024_1",
+        "name": "general",
+        "type": "text"
+      },
+      {
+        "id": "ch_1772716012024_2",
+        "name": "random",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": 1772716681158,
+    "name": "mohit1268's server",
+    "inviteCode": "d86f69d1",
+    "ownerId": 1772610625541,
+    "members": [
+      1772610625541
+    ],
+    "color": "#3BA55D",
+    "channels": [
+      {
+        "id": "ch_1772716681159_1",
+        "name": "general",
+        "type": "text"
+      },
+      {
+        "id": "ch_1772716681159_2",
+        "name": "random",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": 1772716729736,
+    "name": "mohit1268's server",
+    "inviteCode": "ef5f2696",
+    "ownerId": 1772610625541,
+    "members": [
+      1772610625541
+    ],
+    "color": "#ED4245",
+    "channels": [
+      {
+        "id": "ch_1772716729736_1",
+        "name": "general",
+        "type": "text"
+      },
+      {
+        "id": "ch_1772716729736_2",
+        "name": "random",
+        "type": "text"
+      }
+    ]
   }
 ]

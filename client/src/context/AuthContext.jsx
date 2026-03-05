@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
             id: Number(localStorage.getItem("userId")),
             username: localStorage.getItem("username") || "User",
             email: localStorage.getItem("email") || "",
+            dob: localStorage.getItem("dob") || "",
         };
     });
 
@@ -20,11 +21,14 @@ export function AuthProvider({ children }) {
         localStorage.setItem("userId", userData.id);
         localStorage.setItem("username", userData.username);
         localStorage.setItem("email", userData.email);
+        localStorage.setItem("dob", userData.dob);
+        
         setToken(newToken);
         setUser({
             id: userData.id,
             username: userData.username,
             email: userData.email,
+            dob: userData.dob,
         });
     }, []);
 
@@ -33,6 +37,8 @@ export function AuthProvider({ children }) {
         localStorage.removeItem("userId");
         localStorage.removeItem("username");
         localStorage.removeItem("email");
+        localStorage.removeItem("dob");
+        
         setToken(null);
         setUser(null);
     }, []);
@@ -41,9 +47,11 @@ export function AuthProvider({ children }) {
         setUser((prev) => {
             if (!prev) return prev;
             const updated = { ...prev, ...fields };
-            // Sync to localStorage
+            
             if (fields.username) localStorage.setItem("username", fields.username);
             if (fields.email) localStorage.setItem("email", fields.email);
+            if (fields.dob) localStorage.setItem("dob", fields.dob);
+            
             return updated;
         });
     }, []);

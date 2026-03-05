@@ -88,35 +88,35 @@
   border-radius: 1px;
 }
 
+/* --- UPDATED SERVER ICON LOGIC --- */
 .serverIcon {
   width: 44px;
   height: 44px;
   border-radius: 14px;
-  background: var(--bg-raised);
+  /* Removed static background color to allow React inline styles to work */
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.85rem;
+  color: white; /* Changed to white for better contrast against dark/bright mixed colors */
+  font-weight: 700;
+  font-size: 0.95rem;
   border: 1px solid var(--glass-border);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 }
 
 .serverIcon:hover {
-  background: var(--accent-gradient);
-  color: #fff;
-  border-color: transparent;
+  border-color: rgba(255, 255, 255, 0.4);
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+  /* Added dynamic shadow that matches the specific server icon's color intensity */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
 }
 
 .activeServer {
-  background: var(--accent-gradient);
-  color: #fff;
-  border-color: transparent;
-  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+  border-radius: 12px; /* Slightly more rounded when active like Discord */
+  border-color: white;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
 }
 
 /* ═══════════════════════════════════════════
