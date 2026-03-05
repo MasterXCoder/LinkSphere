@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import styles from './UserSettings.module.css';
 
 export default function UserSettings({ onClose }) {
   const navigate = useNavigate();
-  const username = localStorage.getItem("username") || "User";
-  const email = localStorage.getItem("email") || "user@example.com";
+  const auth = useAuth();
+  const username = auth.user?.username || "User";
+  const email = auth.user?.email || "user@example.com";
 
   // Mask email for display
   const [showEmail, setShowEmail] = useState(false);
@@ -43,7 +45,7 @@ export default function UserSettings({ onClose }) {
 
     try {
       // 1. Verify password via login endpoint (since there's no dedicated verify route)
-      const cachedEmail = localStorage.getItem("email");
+      const cachedEmail = auth.user?.email;
       const loginRes = await fetch("http://localhost:8000/api/users/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,11 +61,11 @@ export default function UserSettings({ onClose }) {
       const loginData = await loginRes.json();
       const newToken = loginData.token;
 
-      // Update the token in localStorage so the user doesn't get logged out randomly
-      localStorage.setItem("token", newToken);
+      // Update the token so the user doesn't get logged out randomly
+      auth.updateToken(newToken);
 
       // 2. Perform the update
-      const userId = localStorage.getItem("userId");
+      const userId = auth.user?.id;
       const body = {};
       if (editMode === 'username') body.username = editValue;
       if (editMode === 'email') body.email = editValue;
@@ -79,12 +81,12 @@ export default function UserSettings({ onClose }) {
 
       if (updateRes.ok) {
         if (editMode === 'username') {
-          localStorage.setItem("username", editValue);
+          auth.updateUser({ username: editValue });
           setCurrentUsername(editValue);
           setSuccessToast("Username successfully updated!");
         }
         if (editMode === 'email') {
-          localStorage.setItem("email", editValue);
+          auth.updateUser({ email: editValue });
           setCurrentEmail(editValue);
           setSuccessToast("Email successfully updated!");
         }
@@ -124,7 +126,7 @@ export default function UserSettings({ onClose }) {
 
     try {
       // 1. Verify current password via login endpoint
-      const cachedEmail = localStorage.getItem("email");
+      const cachedEmail = auth.user?.email;
       const loginRes = await fetch("http://localhost:8000/api/users/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -139,10 +141,10 @@ export default function UserSettings({ onClose }) {
 
       const loginData = await loginRes.json();
       const newToken = loginData.token;
-      localStorage.setItem("token", newToken);
+      auth.updateToken(newToken);
 
       // 2. Perform the update with new password
-      const userId = localStorage.getItem("userId");
+      const userId = auth.user?.id;
       const updateRes = await fetch(`http://localhost:8000/api/users/${userId}`, {
         method: "PUT",
         headers: {
@@ -179,7 +181,7 @@ export default function UserSettings({ onClose }) {
 
     try {
       // 1. Verify password via login endpoint
-      const cachedEmail = localStorage.getItem("email");
+      const cachedEmail = auth.user?.email;
       const loginRes = await fetch("http://localhost:8000/api/users/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -196,7 +198,7 @@ export default function UserSettings({ onClose }) {
       const newToken = loginData.token;
 
       // 2. Perform the delete with fresh valid token
-      const userId = localStorage.getItem("userId");
+      const userId = auth.user?.id;
       const res = await fetch(`http://localhost:8000/api/users/${userId}`, {
         method: "DELETE",
         headers: {
@@ -223,10 +225,7 @@ export default function UserSettings({ onClose }) {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("username");
-    localStorage.removeItem("email");
+    auth.logout();
     onClose();
     navigate("/");
   };

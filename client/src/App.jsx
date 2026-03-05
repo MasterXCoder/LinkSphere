@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useAuth } from "./context/AuthContext";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -11,7 +12,7 @@ import "./index.css";
  * GuestRoute – if the user already has a token, redirect to /app
  */
 function GuestRoute({ children }) {
-  const token = localStorage.getItem("token");
+  const { token } = useAuth();
   if (token) {
     return <Navigate to="/app" replace />;
   }
@@ -26,7 +27,7 @@ function GuestRoute({ children }) {
 function InvitePage() {
   const { code } = useParams();
   const navigate = useNavigate();
-  const token = localStorage.getItem("token");
+  const { token } = useAuth();
   const [status, setStatus] = useState("Joining server...");
 
   useEffect(() => {

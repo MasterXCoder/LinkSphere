@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import CreateServerModal from '../components/CreateServerModal';
 import Logo from '../components/Logo';
 import styles from "./AppPage.module.css";
@@ -15,17 +16,19 @@ const STATUSES = {
   invisible: { label: 'Invisible', dot: '#6b7280', indicatorColor: '#6b7280' },
 };
 
-function authHeaders() {
+function authHeaders(token) {
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
+    Authorization: `Bearer ${token}`,
   };
 }
 
 export default function AppPage() {
   const navigate = useNavigate();
-  const username = localStorage.getItem("username") || "User";
-  const userId = Number(localStorage.getItem("userId"));
+  const auth = useAuth();
+  const { user, token } = auth;
+  const username = user?.username || "User";
+  const userId = user?.id || 0;
 
   // ── State ──
   const [servers, setServers] = useState([]);
@@ -58,7 +61,7 @@ export default function AppPage() {
   // ── Fetch user's servers ──
   const fetchServers = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/servers/mine`, { headers: authHeaders() });
+      const res = await fetch(`${API}/servers/mine`, { headers: authHeaders(token) });
       if (res.ok) {
         const data = await res.json();
         setServers(data);
@@ -66,7 +69,7 @@ export default function AppPage() {
     } catch (err) {
       console.error("Failed to fetch servers:", err);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => { fetchServers(); }, [fetchServers]);
 
@@ -94,7 +97,7 @@ export default function AppPage() {
 
     const fetchServerData = async () => {
       try {
-        const res = await fetch(`${API}/servers/${activeServer}`, { headers: authHeaders() });
+        const res = await fetch(`${API}/servers/${activeServer}`, { headers: authHeaders(token) });
         if (res.ok) {
           const data = await res.json();
           setServerData(data);
@@ -120,7 +123,7 @@ export default function AppPage() {
     try {
       const res = await fetch(
         `${API}/servers/${activeServer}/channels/${activeChannel}/messages`,
-        { headers: authHeaders() }
+        { headers: authHeaders(token) }
       );
       if (res.ok) {
         const data = await res.json();
@@ -129,7 +132,7 @@ export default function AppPage() {
     } catch (err) {
       console.error("Failed to fetch messages:", err);
     }
-  }, [activeServer, activeChannel]);
+  }, [activeServer, activeChannel, token]);
 
   useEffect(() => {
     fetchMessages();
@@ -153,7 +156,7 @@ export default function AppPage() {
         `${API}/servers/${activeServer}/channels/${activeChannel}/messages`,
         {
           method: "POST",
-          headers: authHeaders(),
+          headers: authHeaders(token),
           body: JSON.stringify({ content: msgInput }),
         }
       );
@@ -166,9 +169,7 @@ export default function AppPage() {
 
   // ── Logout ──
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userId");
-    localStorage.removeItem("username");
+    auth.logout();
     navigate("/");
   };
 
@@ -185,7 +186,7 @@ export default function AppPage() {
     try {
       await fetch(`${API}/servers/${activeServer}`, {
         method: "DELETE",
-        headers: authHeaders(),
+        headers: authHeaders(token),
       });
       setActiveServer("home");
       setShowServerMenu(false);
@@ -202,7 +203,7 @@ export default function AppPage() {
     try {
       await fetch(`${API}/servers/${activeServer}/leave`, {
         method: "POST",
-        headers: authHeaders(),
+        headers: authHeaders(token),
       });
       setActiveServer("home");
       setShowServerMenu(false);
@@ -590,14 +591,14 @@ export default function AppPage() {
                         <div className={styles.msgAvatarCircle} style={{
                           background: msg.authorId === userId ? '#5865f2' : '#23a559'
                         }}>
-                          {msg.authorName?.charAt(0).toUpperCase() || "?"}
+                          {(msg.authorId === userId ? username : msg.authorName)?.charAt(0).toUpperCase() || "?"}
                         </div>
                         <div className={styles.msgContent}>
                           <div className={styles.msgHeader}>
                             <span className={styles.msgAuthor} style={{
                               color: msg.authorId === userId ? '#949cf7' : '#57f287'
                             }}>
-                              {msg.authorName}
+                              {msg.authorId === userId ? username : msg.authorName}
                             </span>
                             <span className={styles.msgTimestamp}>
                               {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

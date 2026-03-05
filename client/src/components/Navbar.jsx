@@ -1,9 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import Logo from "./Logo";
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
   const location = useLocation();
+  const { token } = useAuth();
   const isAuth = location.pathname === "/login" || location.pathname === "/signup";
 
   return (
@@ -18,7 +20,7 @@ export default function Navbar() {
           <Link to="/" className={styles.loginBtn}>
             Back to home
           </Link>
-        ) : localStorage.getItem("token") ? (
+        ) : token ? (
           <Link to="/app" className={styles.signupBtn}>
             Enter the Sphere →
           </Link>

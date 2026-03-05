@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import AuthForm from "../components/AuthForm";
 
 const LOGIN_FIELDS = [
@@ -9,6 +10,7 @@ const LOGIN_FIELDS = [
 
 export default function Login() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -26,10 +28,7 @@ export default function Login() {
       const json = await res.json();
 
       if (res.ok) {
-        localStorage.setItem("token", json.token);
-        localStorage.setItem("userId", json.user.id);
-        localStorage.setItem("username", json.user.username);
-        localStorage.setItem("email", json.user.email);
+        auth.login({ token: json.token, user: json.user });
         navigate("/app");
       } else {
         setError(json.error || "Login failed. Check your credentials.");
