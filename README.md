@@ -7,12 +7,20 @@ LinkSphere is a scalable real-time communication platform inspired by Discord, b
 linksphere/
 ├── server.js               ← Express entry point
 ├── package.json            ← Root scripts + backend deps
-├── src/
-│   ├── app.js              ← Express app config
-│   ├── routes/
-│   │   └── userRoutes.js   ← /api/users routes
-│   └── controllers/
-│       └── userController.js
+├── server/
+│   │
+│   ├── controllers/            # Business logic
+│   │   ├── userController.js
+│   │   └── serverController.js
+│   │
+│   ├── middleware/             # Custom middleware
+│   │   └── authMiddleware.js
+│   │
+│   ├── routes/                 # API route definitions
+│   │   ├── userRoutes.js
+│   │   └── serverRoutes.js
+│   │
+│   └── app.js                  # Express app configuration
 └── client/                 ← Vite + React frontend
     └── src/
         ├── App.jsx          ← React Router setup
