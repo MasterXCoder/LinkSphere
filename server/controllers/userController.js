@@ -1,24 +1,9 @@
-const dotenv = require("dotenv");
-const fs = require("fs");
-const path = require("path");
 const jwt = require("jsonwebtoken");
-dotenv.config();
+const { getDB } = require("../database/db");
+
 const SECRET = process.env.JWT_SECRET;
 
-const usersFilePath = path.join(__dirname, "../../data/users.json");
-
-const getUsers = () => {
-  if (!fs.existsSync(usersFilePath)) {
-    fs.writeFileSync(usersFilePath, "[]");
-  }
-  const data = fs.readFileSync(usersFilePath, "utf-8");
-  return JSON.parse(data);
-};
-
-const saveUsers = (users) => {
-  fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2));
-};
-
+// ─── Signup ───────────────────────────────────────────────────────────────────
 const signup = async (req, res) => {
   const { username, email, password, dob } = req.body;
 
@@ -26,27 +11,32 @@ const signup = async (req, res) => {
     return res.status(400).json({ error: "All fields are required" });
   }
 
-  const users = getUsers();
+  try {
+    const db = getDB();
+    const users = db.collection("users");
 
-  const existingUser = users.find((user) => user.email === email);
-  if (existingUser) {
-    return res.status(400).json({ error: "User already exists" });
+    const existingUser = await users.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: "User already exists" });
+    }
+
+    const newUser = {
+      id: Date.now(),
+      username,
+      email,
+      dob,
+      password,
+    };
+
+    await users.insertOne(newUser);
+    res.status(201).json({ message: "Account created successfully" });
+  } catch (err) {
+    console.error("signup error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  const newUser = {
-    id: Date.now(),
-    username,
-    email,
-    dob,
-    password, 
-  };
-
-  users.push(newUser);
-  saveUsers(users);
-
-  res.status(201).json({ message: "Account created successfully" });
 };
 
+// ─── Login ────────────────────────────────────────────────────────────────────
 const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -54,97 +44,118 @@ const login = async (req, res) => {
     return res.status(400).json({ error: "Email and password are required" });
   }
 
-  const users = getUsers();
+  try {
+    const db = getDB();
+    const user = await db.collection("users").findOne({ email });
 
-  const user = users.find((user) => user.email === email);
-  if (!user) {
-    return res.status(404).json({ error: "User not found" });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (password !== user.password) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      SECRET,
+      { expiresIn: "1h" }
+    );
+
+    res.status(200).json({
+      message: "Login successful",
+      token,
+      user: { id: user.id, username: user.username, email: user.email, dob: user.dob },
+    });
+  } catch (err) {
+    console.error("login error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  if (password !== user.password) {
-    return res.status(401).json({ error: "Invalid credentials" });
-  }
-
-  const token = jwt.sign(
-    { id: user.id, username: user.username },
-    SECRET,
-    { expiresIn: "1h" }
-  );
-
-  res.status(200).json({
-    message: "Login successful",
-    token,
-    user: { id: user.id, username: user.username, email: user.email, dob: user.dob },
-  });
 };
 
-const getUser = (req, res) => {
-  const { id } = req.params;
-  const users = getUsers();
-  const user = users.find(user => user.id == id);
+// ─── Get User ─────────────────────────────────────────────────────────────────
+const getUser = async (req, res) => {
+  const id = Number(req.params.id);
 
-  if (!user) {
-    return res.status(404).json({ error: "User not found" });
+  try {
+    const db = getDB();
+    const user = await db.collection("users").findOne({ id });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      dob: user.dob,
+    });
+  } catch (err) {
+    console.error("getUser error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  res.status(200).json({
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    dob: user.dob,
-  });
 };
 
-const updateUser = (req, res) => {
-  const { id } = req.params;
+// ─── Update User ──────────────────────────────────────────────────────────────
+const updateUser = async (req, res) => {
+  const id = Number(req.params.id);
 
   if (req.user.id != id) {
     return res.status(403).json({ error: "Unauthorized action" });
   }
 
   const { username, email, password, dob } = req.body;
-  const users = getUsers();
 
-  const userIndex = users.findIndex((user) => user.id == id);
-  if (userIndex === -1) {
-    return res.status(404).json({ error: "User not found" });
+  try {
+    const db = getDB();
+    const users = db.collection("users");
+
+    const user = await users.findOne({ id });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const updates = {};
+    if (username) updates.username = username;
+    if (email)    updates.email    = email;
+    if (password) updates.password = password;
+    if (dob)      updates.dob      = dob;
+
+    await users.updateOne({ id }, { $set: updates });
+
+    const updated = await users.findOne({ id });
+    res.status(200).json({
+      message: "User updated successfully",
+      user: { id: updated.id, username: updated.username, email: updated.email, dob: updated.dob },
+    });
+  } catch (err) {
+    console.error("updateUser error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  if (username) users[userIndex].username = username;
-  if (email) users[userIndex].email = email;
-  if (password) users[userIndex].password = password;
-  if (dob) users[userIndex].dob = dob;
-
-  saveUsers(users);
-
-  res.status(200).json({
-    message: "User updated successfully",
-    user: {
-      id: users[userIndex].id,
-      username: users[userIndex].username,
-      email: users[userIndex].email,
-      dob: users[userIndex].dob,
-    },
-  });
 };
 
-const deleteUser = (req, res) => {
-  const { id } = req.params;
+// ─── Delete User ──────────────────────────────────────────────────────────────
+const deleteUser = async (req, res) => {
+  const id = Number(req.params.id);
 
   if (req.user.id != id) {
     return res.status(403).json({ error: "You can only delete your own account" });
   }
 
-  const users = getUsers();
-  const userExists = users.find((user) => user.id == id);
-  if (!userExists) {
-    return res.status(404).json({ error: "User not found" });
+  try {
+    const db = getDB();
+    const result = await db.collection("users").deleteOne({ id });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({ message: "Account deleted successfully" });
+  } catch (err) {
+    console.error("deleteUser error:", err);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  const updatedUsers = users.filter((user) => user.id != id);
-  saveUsers(updatedUsers);
-
-  res.status(200).json({ message: "Account deleted successfully" });
 };
 
 module.exports = { signup, login, getUser, updateUser, deleteUser };
