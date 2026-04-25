@@ -47,7 +47,7 @@ export default function AppPage() {
   const [friendInput, setFriendInput] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
-  
+
   // Channel Creation State
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
@@ -65,7 +65,7 @@ export default function AppPage() {
     const { left, top } = mainAreaRef.current.getBoundingClientRect();
     const x = e.clientX - left;
     const y = e.clientY - top;
-    
+
     // Set CSS variables for the dynamic glow effect
     mainAreaRef.current.style.setProperty('--mouse-x', `${x}px`);
     mainAreaRef.current.style.setProperty('--mouse-y', `${y}px`);
@@ -256,7 +256,7 @@ export default function AppPage() {
 
   // ── Server created callback ──
   const onServerCreated = () => {
-    setIsServerModalOpen(false); 
+    setIsServerModalOpen(false);
     fetchServers();
   };
 
@@ -324,8 +324,8 @@ export default function AppPage() {
         <div ref={userPopupRef} className={styles.userPopup}>
           {/* Banner + Avatar */}
           <div className={styles.userPopupBanner}>
-            <div className={styles.userPopupAvatar}>
-              {username.charAt(0).toUpperCase()}
+            <div className={styles.userPopupAvatar} style={auth.user?.avatarUrl ? { backgroundImage: `url(${auth.user.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
+              {!auth.user?.avatarUrl && username.charAt(0).toUpperCase()}
               <div className={styles.userPopupStatusDot}></div>
             </div>
           </div>
@@ -404,8 +404,8 @@ export default function AppPage() {
         onClick={() => { setShowUserPopup(!showUserPopup); setShowStatusSubmenu(false); }}
       >
         <div className={styles.avatarWrapper}>
-          <div className={styles.userAvatar}>
-            {username.charAt(0).toUpperCase()}
+          <div className={styles.userAvatar} style={auth.user?.avatarUrl ? { backgroundImage: `url(${auth.user.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
+            {!auth.user?.avatarUrl && username.charAt(0).toUpperCase()}
           </div>
           <div className={styles.statusIndicator} style={{ background: STATUSES[currentStatus].indicatorColor }}></div>
         </div>
@@ -450,7 +450,9 @@ export default function AppPage() {
           )}
         </button>
         <button type="button" className={styles.userIconBtn} title="User Settings" onClick={() => setShowSettings(true)}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path fillRule="evenodd" clipRule="evenodd" d="M19.738 10H22V14H19.739C19.498 14.931 19.1 15.798 18.565 16.564L20.166 18.166L17.336 20.995L15.736 19.396C14.998 19.901 14.167 20.279 13.279 20.505V23H9.279V20.505C8.391 20.28 7.559 19.901 6.822 19.396L5.222 20.995L2.392 18.166L3.993 16.564C3.458 15.798 3.06 14.931 2.819 14H0.5V10H2.819C3.06 9.069 3.458 8.202 3.993 7.436L2.392 5.834L5.222 3.005L6.822 4.604C7.559 4.099 8.391 3.721 9.279 3.495V1H13.279V3.495C14.167 3.72 14.998 4.099 15.736 4.604L17.336 3.005L20.166 5.834L18.565 7.436C19.1 8.202 19.498 9.069 19.738 10ZM11.279 16C13.488 16 15.279 14.209 15.279 12C15.279 9.791 13.488 8 11.279 8C9.07 8 7.279 9.791 7.279 12C7.279 14.209 9.07 16 11.279 16Z" />
+          </svg>
         </button>
       </div>
     </footer>
@@ -481,10 +483,16 @@ export default function AppPage() {
             type="button"
             title={server.name}
             className={`${styles.serverIcon} ${activeServer === server.id ? styles.activeServer : ""}`}
-            style={{ backgroundColor: server.color || "#5865f2" }}
+            style={{
+              backgroundColor: server.color || "#5865f2",
+              backgroundImage: server.iconUrl ? `url(${server.iconUrl})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              color: server.iconUrl ? 'transparent' : 'inherit'
+            }}
             onClick={() => setActiveServer(server.id)}
           >
-            {server.name.charAt(0).toUpperCase()}
+            {!server.iconUrl && server.name.charAt(0).toUpperCase()}
           </button>
         ))}
 
@@ -562,8 +570,8 @@ export default function AppPage() {
                 <span>Text Channels</span>
                 {/* NEW: Add Channel Button - only for server owner */}
                 {serverData?.ownerId === userId && (
-                  <button 
-                    className={styles.addChannelBtn} 
+                  <button
+                    className={styles.addChannelBtn}
                     onClick={() => setIsChannelModalOpen(true)}
                     title="Create Channel"
                   >
@@ -584,7 +592,7 @@ export default function AppPage() {
                   {/* NEW: Delete Channel Button - only for server owner */}
                   {serverData?.ownerId === userId && (
                     <div className={styles.channelRight}>
-                      <svg 
+                      <svg
                         onClick={(e) => handleDeleteChannel(e, ch.id)}
                         className={styles.channelDeleteIcon}
                         width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -605,13 +613,13 @@ export default function AppPage() {
       </aside>
 
       {/* 3. MAIN AREA — INTEGRATED REF AND GLOW LAYER */}
-      <main 
-        className={styles.mainArea} 
-        ref={mainAreaRef} 
+      <main
+        className={styles.mainArea}
+        ref={mainAreaRef}
         onMouseMove={handleMouseMove}
       >
         <div className={styles.dynamicGlow}></div> {/* Dynamic Background Layer */}
-        
+
         {activeServer === "home" ? (
           <>
             <header className={styles.topHeader}>
@@ -703,9 +711,13 @@ export default function AppPage() {
                     ) : (
                       <div key={msg.id} className={styles.message}>
                         <div className={styles.msgAvatarCircle} style={{
-                          background: msg.authorId === userId ? '#5865f2' : '#23a559'
+                          background: msg.authorId === userId ? '#5865f2' : '#23a559',
+                          backgroundImage: msg.authorAvatarUrl ? `url(${msg.authorAvatarUrl})` : 'none',
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          color: msg.authorAvatarUrl ? 'transparent' : 'inherit'
                         }}>
-                          {(msg.authorId === userId ? username : msg.authorName)?.charAt(0).toUpperCase() || "?"}
+                          {!msg.authorAvatarUrl && ((msg.authorId === userId ? username : msg.authorName)?.charAt(0).toUpperCase() || "?")}
                         </div>
                         <div className={styles.msgContent}>
                           <div className={styles.msgHeader}>
@@ -750,9 +762,13 @@ export default function AppPage() {
                   <div key={m.id} className={styles.memberItem}>
                     <div className={styles.memberAvatarWrap}>
                       <div className={styles.memberAvatar} style={{
-                        background: m.id === serverData?.ownerId ? '#5865f2' : '#23a559'
+                        background: m.id === serverData?.ownerId ? '#5865f2' : '#23a559',
+                        backgroundImage: m.avatarUrl ? `url(${m.avatarUrl})` : 'none',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        color: m.avatarUrl ? 'transparent' : 'inherit'
                       }}>
-                        {m.username.charAt(0).toUpperCase()}
+                        {!m.avatarUrl && m.username.charAt(0).toUpperCase()}
                       </div>
                       <div className={styles.memberDot}></div>
                     </div>
@@ -771,7 +787,7 @@ export default function AppPage() {
       </main>
 
       {showSettings && <UserSettings onClose={() => setShowSettings(false)} />}
-      
+
       {/* SERVER MODAL GATEKEEPER */}
       {isServerModalOpen && (
         <CreateServerModal
@@ -786,11 +802,11 @@ export default function AppPage() {
           <div className={styles.modalContent}>
             <h3>Create Text Channel</h3>
             <form onSubmit={handleCreateChannel}>
-              <input 
-                type="text" 
-                placeholder="new-channel" 
-                value={newChannelName} 
-                onChange={(e) => setNewChannelName(e.target.value)} 
+              <input
+                type="text"
+                placeholder="new-channel"
+                value={newChannelName}
+                onChange={(e) => setNewChannelName(e.target.value)}
                 className={styles.modalInput}
                 autoFocus
               />

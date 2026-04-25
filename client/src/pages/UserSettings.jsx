@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styles from './UserSettings.module.css';
@@ -35,6 +35,62 @@ export default function UserSettings({ onClose }) {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState("");
+
+  const [avatarUploadLoading, setAvatarUploadLoading] = useState(false);
+  const avatarInputRef = useRef(null);
+
+  const handleAvatarSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setAvatarUploadLoading(true);
+    setEditError("");
+    setSuccessToast("");
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const uploadRes = await fetch("http://localhost:8000/api/upload", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${auth.token}`,
+        },
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json().catch(() => ({}));
+        alert(errorData.error || "Failed to upload avatar image.");
+        setAvatarUploadLoading(false);
+        return;
+      }
+
+      const uploadData = await uploadRes.json();
+      const newAvatarUrl = uploadData.url;
+
+      const updateRes = await fetch(`http://localhost:8000/api/users/${auth.user?.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${auth.token}`
+        },
+        body: JSON.stringify({ avatarUrl: newAvatarUrl })
+      });
+
+      if (updateRes.ok) {
+        auth.updateUser({ avatarUrl: newAvatarUrl });
+        setSuccessToast("Avatar updated successfully!");
+      } else {
+        setEditError("Failed to update avatar.");
+      }
+    } catch (err) {
+      console.error(err);
+      setEditError("Could not connect to server.");
+    } finally {
+      setAvatarUploadLoading(false);
+    }
+  };
 
   const maskedEmail = currentEmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => a + '*'.repeat(b.length) + c);
 
@@ -249,8 +305,13 @@ export default function UserSettings({ onClose }) {
         <div className={styles.sidebarContent}>
           {/* Top Profile Snippet */}
           <div className={styles.profileSnippet}>
-            <div className={styles.snippetAvatar}>
-              {currentUsername.charAt(0).toUpperCase()}
+            <div className={styles.snippetAvatar} style={{
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundImage: auth.user?.avatarUrl ? `url(${auth.user.avatarUrl})` : 'none',
+              color: auth.user?.avatarUrl ? 'transparent' : 'inherit'
+            }}>
+              {!auth.user?.avatarUrl && currentUsername.charAt(0).toUpperCase()}
             </div>
             <div className={styles.snippetInfo}>
               <div className={styles.snippetName}>{currentUsername}</div>
@@ -306,8 +367,29 @@ export default function UserSettings({ onClose }) {
             <div className={styles.cardBanner}></div>
 
             <div className={styles.cardHeader}>
-              <div className={styles.cardAvatarWrapper} style={{ background: '#5865f2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.2rem', fontWeight: 700 }}>
-                {currentUsername.charAt(0).toUpperCase()}
+              <div 
+                className={styles.cardAvatarWrapper} 
+                style={{ 
+                  background: '#5865f2', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  color: '#fff', 
+                  fontSize: '1.2rem', 
+                  fontWeight: 700,
+                  position: 'relative',
+                  cursor: 'pointer',
+                  overflow: 'hidden',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundImage: auth.user?.avatarUrl ? `url(${auth.user.avatarUrl})` : 'none'
+                }}
+                onClick={() => avatarInputRef.current?.click()}
+                title="Change Avatar"
+              >
+                {!auth.user?.avatarUrl && currentUsername.charAt(0).toUpperCase()}
+                {avatarUploadLoading && <div style={{position: 'absolute', background: 'rgba(0,0,0,0.5)', width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize: '12px'}}>...</div>}
+                <input type="file" ref={avatarInputRef} onChange={handleAvatarSelect} style={{ display: "none" }} accept="image/*" />
               </div>
 
               <div className={styles.cardUserInfo}>

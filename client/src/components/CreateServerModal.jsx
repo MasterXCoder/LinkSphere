@@ -15,9 +15,11 @@ const CreateServerModal = ({ onClose, onCreated }) => {
     const [currentView, setCurrentView] = useState('main');
     const [joinError, setJoinError] = useState('');
     const [joinLoading, setJoinLoading] = useState(false);
+    const [createLoading, setCreateLoading] = useState(false);
 
     // State for the customize screen
     const [selectedFile, setSelectedFile] = useState(null);
+    const [fileToUpload, setFileToUpload] = useState(null);
     const [serverName, setServerName] = useState(`${localStorage.getItem("username") || "My"}'s server`);
 
     // State for the join screen
@@ -34,19 +36,45 @@ const CreateServerModal = ({ onClose, onCreated }) => {
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
-        if (file) setSelectedFile(URL.createObjectURL(file));
+        if (file) {
+            setSelectedFile(URL.createObjectURL(file));
+            setFileToUpload(file);
+        }
     };
 
     const handleFinalCreate = async () => {
         if (!serverName.trim()) return;
+        setCreateLoading(true);
         try {
+            let iconUrl = null;
+            if (fileToUpload) {
+                const formData = new FormData();
+                formData.append("image", fileToUpload);
+                const uploadRes = await fetch(`${API}/upload`, {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem("token")}`, // optional if upload route needs it
+                    },
+                    body: formData,
+                });
+                if (uploadRes.ok) {
+                    const uploadData = await uploadRes.json();
+                    iconUrl = uploadData.url;
+                } else {
+                    const errorObj = await uploadRes.json();
+                    alert(errorObj.error || "Failed to upload server icon.");
+                    setCreateLoading(false);
+                    return;
+                }
+            }
+
             const res = await fetch(`${API}/servers`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${localStorage.getItem("token")}`,
                 },
-                body: JSON.stringify({ name: serverName }),
+                body: JSON.stringify({ name: serverName, iconUrl }),
             });
             if (res.ok) {
                 onCreated?.();
@@ -57,6 +85,8 @@ const CreateServerModal = ({ onClose, onCreated }) => {
             }
         } catch (err) {
             alert("Could not connect to server");
+        } finally {
+            setCreateLoading(false);
         }
     }
 
@@ -218,7 +248,9 @@ const CreateServerModal = ({ onClose, onCreated }) => {
 
                         <div className={styles.footerWithFlex}>
                             <button className={styles.backButton} onClick={() => setCurrentView('tellUsMore')}>Back</button>
-                            <button className={styles.actionBtn} onClick={handleFinalCreate}>Create</button>
+                            <button className={styles.actionBtn} onClick={handleFinalCreate} disabled={createLoading}>
+                                {createLoading ? "Creating..." : "Create"}
+                            </button>
                         </div>
                     </div>
                 )}
