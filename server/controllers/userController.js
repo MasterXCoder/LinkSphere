@@ -55,6 +55,13 @@ const login = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Guard: if user signed up via Google, they have no password
+    if (user.googleId && !user.password) {
+      return res.status(400).json({
+        error: "This account uses Google Sign-In. Please use the Google button to log in.",
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid credentials" });

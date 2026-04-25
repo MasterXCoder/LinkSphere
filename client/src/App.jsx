@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "./context/AuthContext";
+import OAuthCallback from "./pages/OAuthCallback";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -90,6 +91,7 @@ function AppRouter() {
         <Route path="/app" element={
           <ProtectedRoute><App /></ProtectedRoute>
         } />
+        <Route path="/oauth-callback" element={<OAuthCallback />} />
         <Route path="/invite/:code" element={<InvitePage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
