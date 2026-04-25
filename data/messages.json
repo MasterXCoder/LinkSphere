@@ -115,6 +115,7 @@
     "authorName": "mohit1268",
     "content": "dfdwsf",
     "type": "user",
+<<<<<<< HEAD
     "timestamp": "2026-03-04T19:16:35.032Z"
   },
   {
@@ -124,5 +125,106 @@
     "type": "system",
     "content": "ishpreet_02 created the server. Welcome!",
     "timestamp": "2026-03-12T05:55:29.153Z"
+=======
+    "timestamp": "2026-03-05T13:21:08.819Z"
+  },
+  {
+    "id": 1775913097580,
+    "serverId": 1772716729736,
+    "channelId": "ch_1772716729736_1",
+    "authorId": 1772610625541,
+    "authorName": "mohit1268",
+    "content": "hell no",
+    "type": "user",
+    "timestamp": "2026-04-11T13:11:37.580Z"
+  },
+  {
+    "id": 1775913414220,
+    "serverId": 1772716729736,
+    "channelId": "ch_1772716729736_1",
+    "type": "system",
+    "content": "morbius joined the server. Welcome!",
+    "timestamp": "2026-04-11T13:16:54.220Z"
+  },
+  {
+    "id": 1775913419512,
+    "serverId": 1772716729736,
+    "channelId": "ch_1772716729736_1",
+    "authorId": 1775913306684,
+    "authorName": "morbius",
+    "content": "yooo",
+    "type": "user",
+    "timestamp": "2026-04-11T13:16:59.512Z"
+  },
+  {
+    "id": 1775913450427,
+    "serverId": 1772716729736,
+    "channelId": "ch_1772716729736_1",
+    "authorId": 1775913306684,
+    "authorName": "morbius",
+    "content": "damdam",
+    "type": "user",
+    "timestamp": "2026-04-11T13:17:30.427Z"
+  },
+  {
+    "id": 1775913496019,
+    "serverId": 1772716729736,
+    "channelId": "ch_1772716729736_1",
+    "authorId": 1772610625541,
+    "authorName": "mohit1268",
+    "content": "oh morbius why are u here",
+    "type": "user",
+    "timestamp": "2026-04-11T13:18:16.019Z"
+  },
+  {
+    "id": 1775913508785,
+    "serverId": 1772716729736,
+    "channelId": "ch_1772716729736_1",
+    "authorId": 1772610625541,
+    "authorName": "mohit1268",
+    "content": "did u followed me from discord",
+    "type": "user",
+    "timestamp": "2026-04-11T13:18:28.785Z"
+  },
+  {
+    "id": 1775913525220,
+    "serverId": 1772716729736,
+    "channelId": "ch_1772716729736_1",
+    "authorId": 1775913306684,
+    "authorName": "morbius",
+    "content": "well technically yeah",
+    "type": "user",
+    "timestamp": "2026-04-11T13:18:45.220Z"
+  },
+  {
+    "id": 1775913535213,
+    "serverId": 1772716729736,
+    "channelId": "ch_1772716729736_1",
+    "authorId": 1772610625541,
+    "authorName": "mohit1268",
+    "content": "what the hell dude",
+    "type": "user",
+    "timestamp": "2026-04-11T13:18:55.213Z"
+  },
+  {
+    "id": 1775913539490,
+    "serverId": 1772716729736,
+    "channelId": "ch_1772716729736_1",
+    "authorId": 1772610625541,
+    "authorName": "mohit1268",
+    "content": "just go away",
+    "type": "user",
+    "timestamp": "2026-04-11T13:18:59.490Z"
+  },
+  {
+    "id": 1775913568532,
+    "serverId": 1772716729736,
+    "channelId": "ch_1772716729736_1",
+    "authorId": 1775913306684,
+    "authorName": "morbius",
+    "content": "no i will be where u will be",
+    "type": "user",
+    "timestamp": "2026-04-11T13:19:28.532Z"
+>>>>>>> 67f5af05bfba9801583882f41c93ae476ef54d9e
   }
 ]

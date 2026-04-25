@@ -1,0 +1,7 @@
+{
+  "watch": ["server.js", "server/"],
+  "ext": "js,json",
+  "ignore": ["node_modules/", "client/"],
+  "stdin": false,
+  "delay": 500
+}

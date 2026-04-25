@@ -60,5 +60,19 @@
     "email": "vansh24@gmail.com",
     "dob": "2005-02-06",
     "password": "456"
+  },
+  {
+    "id": 1775913306684,
+    "username": "morbius",
+    "email": "morbius@gmail.com",
+    "dob": "2006-02-11",
+    "password": "pop,.098"
+  },
+  {
+    "id": 1776043752258,
+    "username": "Bot1",
+    "email": "bot1@gmail.com",
+    "dob": "2026-04-13",
+    "password": "pop,.098"
   }
 ]
