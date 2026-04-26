@@ -1,6 +1,6 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { getDB } = require("../database/db");
+const User = require("../models/User");
 
 const SECRET = process.env.JWT_SECRET;
 
@@ -13,25 +13,21 @@ const signup = async (req, res) => {
   }
 
   try {
-    const db = getDB();
-    const users = db.collection("users");
-
-    const existingUser = await users.findOne({ email });
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: "User already exists" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = {
-      id: Date.now(),
+    const newUser = new User({
       username,
       email,
       dob,
       password: hashedPassword,
-    };
+    });
 
-    await users.insertOne(newUser);
+    await newUser.save();
     res.status(201).json({ message: "Account created successfully" });
   } catch (err) {
     console.error("signup error:", err);
@@ -48,8 +44,7 @@ const login = async (req, res) => {
   }
 
   try {
-    const db = getDB();
-    const user = await db.collection("users").findOne({ email });
+    const user = await User.findOne({ email });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -89,8 +84,7 @@ const getUser = async (req, res) => {
   const id = Number(req.params.id);
 
   try {
-    const db = getDB();
-    const user = await db.collection("users").findOne({ id });
+    const user = await User.findOne({ id });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -121,27 +115,22 @@ const updateUser = async (req, res) => {
   const { username, email, password, dob, avatarUrl } = req.body;
 
   try {
-    const db = getDB();
-    const users = db.collection("users");
-
-    const user = await users.findOne({ id });
+    const user = await User.findOne({ id });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const updates = {};
-    if (username) updates.username = username;
-    if (email)    updates.email    = email;
-    if (password) updates.password = await bcrypt.hash(password, 10);
-    if (dob)      updates.dob      = dob;
-    if (avatarUrl) updates.avatarUrl = avatarUrl;
+    if (username) user.username = username;
+    if (email)    user.email    = email;
+    if (password) user.password = await bcrypt.hash(password, 10);
+    if (dob)      user.dob      = dob;
+    if (avatarUrl) user.avatarUrl = avatarUrl;
 
-    await users.updateOne({ id }, { $set: updates });
+    await user.save();
 
-    const updated = await users.findOne({ id });
     res.status(200).json({
       message: "User updated successfully",
-      user: { id: updated.id, username: updated.username, email: updated.email, dob: updated.dob, hasPassword: !!updated.password, avatarUrl: updated.avatarUrl },
+      user: { id: user.id, username: user.username, email: user.email, dob: user.dob, hasPassword: !!user.password, avatarUrl: user.avatarUrl },
     });
   } catch (err) {
     console.error("updateUser error:", err);
@@ -158,8 +147,7 @@ const deleteUser = async (req, res) => {
   }
 
   try {
-    const db = getDB();
-    const result = await db.collection("users").deleteOne({ id });
+    const result = await User.deleteOne({ id });
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: "User not found" });

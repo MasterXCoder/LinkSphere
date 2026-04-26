@@ -1,34 +1,28 @@
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const mongoose = require("mongoose");
 
-// URI is loaded from .env — password is never hardcoded here
+// URI is loaded from .env
 const uri = process.env.MONGODB_URI;
 
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-});
-
-let db;
-
 async function connectDB() {
-  if (db) return db; // return cached connection if already connected
+  try {
+    if (mongoose.connection.readyState >= 1) return;
 
-  await client.connect();
-
-  // Confirm connection with a ping
-  await client.db("admin").command({ ping: 1 });
-  console.log("✅ Connected to MongoDB Atlas");
-
-  db = client.db("linksphere"); // use the 'linksphere' named database
-  return db;
+    await mongoose.connect(uri, {
+      dbName: "linksphere",
+    });
+    console.log("✅ Connected to MongoDB Atlas via Mongoose");
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err);
+    process.exit(1);
+  }
 }
 
+// Exporting a helper to ensure DB is connected (optional with Mongoose but good for consistency)
 function getDB() {
-  if (!db) throw new Error("Database not initialised — call connectDB() first");
-  return db;
+  if (mongoose.connection.readyState === 0) {
+    throw new Error("Database not initialised — call connectDB() first");
+  }
+  return mongoose.connection.db;
 }
 
-module.exports = { connectDB, getDB, client };
+module.exports = { connectDB, getDB };

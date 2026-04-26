@@ -1,5 +1,7 @@
 const crypto = require("crypto");
-const { getDB } = require("../database/db");
+const Server = require("../models/Server");
+const Message = require("../models/Message");
+const User = require("../models/User");
 
 const SERVER_COLORS = [
   "#5865F2",
@@ -27,11 +29,10 @@ const createServer = async (req, res) => {
   }
 
   try {
-    const db = getDB();
     const randomColor = SERVER_COLORS[Math.floor(Math.random() * SERVER_COLORS.length)];
     const now = Date.now();
 
-    const newServer = {
+    const newServer = new Server({
       id: now,
       name: name.trim(),
       iconUrl: iconUrl || null,
@@ -43,19 +44,18 @@ const createServer = async (req, res) => {
         { id: `ch_${now}_1`, name: "general", type: "text" },
         { id: `ch_${now}_2`, name: "random",  type: "text" },
       ],
-    };
+    });
 
-    await db.collection("servers").insertOne(newServer);
+    await newServer.save();
 
     // System welcome message in general channel
-    await db.collection("messages").insertOne({
-      id: Date.now(),
+    const welcomeMessage = new Message({
       serverId: newServer.id,
       channelId: newServer.channels[0].id,
       type: "system",
       content: `${username} created the server. Welcome!`,
-      timestamp: new Date().toISOString(),
     });
+    await welcomeMessage.save();
 
     res.status(201).json({ message: "Server created", server: newServer });
   } catch (err) {
@@ -69,8 +69,7 @@ const getMyServers = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const db = getDB();
-    const myServers = await db.collection("servers").find({ members: userId }).toArray();
+    const myServers = await Server.find({ members: userId });
     res.json(myServers);
   } catch (err) {
     console.error("getMyServers error:", err);
@@ -83,8 +82,7 @@ const getServer = async (req, res) => {
   const id = Number(req.params.id);
 
   try {
-    const db = getDB();
-    const server = await db.collection("servers").findOne({ id });
+    const server = await Server.findOne({ id });
 
     if (!server) {
       return res.status(404).json({ error: "Server not found" });
@@ -95,17 +93,14 @@ const getServer = async (req, res) => {
     }
 
     // Resolve member usernames
-    const memberDocs = await db
-      .collection("users")
-      .find({ id: { $in: server.members } })
-      .toArray();
+    const memberDocs = await User.find({ id: { $in: server.members } });
 
     const membersWithNames = server.members.map((memberId) => {
       const user = memberDocs.find((u) => u.id === memberId);
       return { id: memberId, username: user ? user.username : "Unknown", avatarUrl: user?.avatarUrl || null };
     });
 
-    res.json({ ...server, membersData: membersWithNames });
+    res.json({ ...server.toObject(), membersData: membersWithNames });
   } catch (err) {
     console.error("getServer error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -117,8 +112,7 @@ const deleteServer = async (req, res) => {
   const id = Number(req.params.id);
 
   try {
-    const db = getDB();
-    const server = await db.collection("servers").findOne({ id });
+    const server = await Server.findOne({ id });
 
     if (!server) {
       return res.status(404).json({ error: "Server not found" });
@@ -128,8 +122,8 @@ const deleteServer = async (req, res) => {
       return res.status(403).json({ error: "Only the server owner can delete it" });
     }
 
-    await db.collection("servers").deleteOne({ id });
-    await db.collection("messages").deleteMany({ serverId: id });
+    await Server.deleteOne({ id });
+    await Message.deleteMany({ serverId: id });
 
     res.json({ message: "Server deleted" });
   } catch (err) {
@@ -148,8 +142,7 @@ const createChannel = async (req, res) => {
   }
 
   try {
-    const db = getDB();
-    const server = await db.collection("servers").findOne({ id });
+    const server = await Server.findOne({ id });
 
     if (!server) {
       return res.status(404).json({ error: "Server not found" });
@@ -165,7 +158,8 @@ const createChannel = async (req, res) => {
       type: "text",
     };
 
-    await db.collection("servers").updateOne({ id }, { $push: { channels: newChannel } });
+    server.channels.push(newChannel);
+    await server.save();
 
     res.status(201).json({ message: "Channel created", channel: newChannel });
   } catch (err) {
@@ -180,8 +174,7 @@ const deleteChannel = async (req, res) => {
   const { channelId } = req.params;
 
   try {
-    const db = getDB();
-    const server = await db.collection("servers").findOne({ id });
+    const server = await Server.findOne({ id });
 
     if (!server) {
       return res.status(404).json({ error: "Server not found" });
@@ -191,8 +184,8 @@ const deleteChannel = async (req, res) => {
       return res.status(403).json({ error: "Only the server owner can delete channels" });
     }
 
-    const channelExists = server.channels.find((c) => c.id === channelId);
-    if (!channelExists) {
+    const channelIndex = server.channels.findIndex((c) => c.id === channelId);
+    if (channelIndex === -1) {
       return res.status(404).json({ error: "Channel not found" });
     }
 
@@ -200,12 +193,10 @@ const deleteChannel = async (req, res) => {
       return res.status(400).json({ error: "Cannot delete the last channel" });
     }
 
-    await db.collection("servers").updateOne(
-      { id },
-      { $pull: { channels: { id: channelId } } }
-    );
+    server.channels.splice(channelIndex, 1);
+    await server.save();
 
-    await db.collection("messages").deleteMany({ channelId });
+    await Message.deleteMany({ channelId });
 
     res.json({ message: "Channel deleted" });
   } catch (err) {
@@ -221,8 +212,7 @@ const joinServer = async (req, res) => {
   const username = req.user.username;
 
   try {
-    const db = getDB();
-    const server = await db.collection("servers").findOne({ id });
+    const server = await Server.findOne({ id });
 
     if (!server) {
       return res.status(404).json({ error: "Server not found" });
@@ -232,22 +222,21 @@ const joinServer = async (req, res) => {
       return res.status(400).json({ error: "You are already a member" });
     }
 
-    await db.collection("servers").updateOne({ id }, { $push: { members: userId } });
+    server.members.push(userId);
+    await server.save();
 
     const generalChannel = server.channels[0];
     if (generalChannel) {
-      await db.collection("messages").insertOne({
-        id: Date.now(),
+      const joinMsg = new Message({
         serverId: server.id,
         channelId: generalChannel.id,
         type: "system",
         content: `${username} joined the server. Welcome!`,
-        timestamp: new Date().toISOString(),
       });
+      await joinMsg.save();
     }
 
-    const updated = await db.collection("servers").findOne({ id });
-    res.json({ message: "Joined server successfully", server: updated });
+    res.json({ message: "Joined server successfully", server });
   } catch (err) {
     console.error("joinServer error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -259,8 +248,7 @@ const getServerByInvite = async (req, res) => {
   const { code } = req.params;
 
   try {
-    const db = getDB();
-    const server = await db.collection("servers").findOne({ inviteCode: code });
+    const server = await Server.findOne({ inviteCode: code });
 
     if (!server) {
       return res.status(404).json({ error: "Invalid invite code" });
@@ -285,8 +273,7 @@ const joinByInvite = async (req, res) => {
   const username = req.user.username;
 
   try {
-    const db = getDB();
-    const server = await db.collection("servers").findOne({ inviteCode: code });
+    const server = await Server.findOne({ inviteCode: code });
 
     if (!server) {
       return res.status(404).json({ error: "Invalid invite link" });
@@ -296,25 +283,21 @@ const joinByInvite = async (req, res) => {
       return res.json({ message: "Already a member", server, alreadyMember: true });
     }
 
-    await db.collection("servers").updateOne(
-      { inviteCode: code },
-      { $push: { members: userId } }
-    );
+    server.members.push(userId);
+    await server.save();
 
     const generalChannel = server.channels[0];
     if (generalChannel) {
-      await db.collection("messages").insertOne({
-        id: Date.now(),
+      const joinMsg = new Message({
         serverId: server.id,
         channelId: generalChannel.id,
         type: "system",
         content: `${username} joined the server. Welcome!`,
-        timestamp: new Date().toISOString(),
       });
+      await joinMsg.save();
     }
 
-    const updated = await db.collection("servers").findOne({ inviteCode: code });
-    res.json({ message: "Joined server successfully", server: updated });
+    res.json({ message: "Joined server successfully", server });
   } catch (err) {
     console.error("joinByInvite error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -327,8 +310,7 @@ const leaveServer = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const db = getDB();
-    const server = await db.collection("servers").findOne({ id });
+    const server = await Server.findOne({ id });
 
     if (!server) {
       return res.status(404).json({ error: "Server not found" });
@@ -342,18 +324,18 @@ const leaveServer = async (req, res) => {
       return res.status(400).json({ error: "Server owner cannot leave. Delete the server instead." });
     }
 
-    await db.collection("servers").updateOne({ id }, { $pull: { members: userId } });
+    server.members = server.members.filter(m => m !== userId);
+    await server.save();
 
     const generalChannel = server.channels[0];
     if (generalChannel) {
-      await db.collection("messages").insertOne({
-        id: Date.now(),
+      const leaveMsg = new Message({
         serverId: server.id,
         channelId: generalChannel.id,
         type: "system",
         content: `${req.user.username} left the server.`,
-        timestamp: new Date().toISOString(),
       });
+      await leaveMsg.save();
     }
 
     res.json({ message: "Left server successfully" });
@@ -369,8 +351,7 @@ const getChannelMessages = async (req, res) => {
   const { channelId } = req.params;
 
   try {
-    const db = getDB();
-    const server = await db.collection("servers").findOne({ id });
+    const server = await Server.findOne({ id });
 
     if (!server) {
       return res.status(404).json({ error: "Server not found" });
@@ -380,22 +361,19 @@ const getChannelMessages = async (req, res) => {
       return res.status(403).json({ error: "You are not a member of this server" });
     }
 
-    const channelMessages = await db
-      .collection("messages")
-      .find({ serverId: id, channelId })
-      .sort({ timestamp: 1 })
-      .toArray();
+    const channelMessages = await Message.find({ serverId: id, channelId }).sort({ timestamp: 1 });
 
     // Resolve current usernames so name changes are reflected
     const authorIds = [...new Set(channelMessages.map((m) => m.authorId).filter(Boolean))];
-    const authorDocs = await db.collection("users").find({ id: { $in: authorIds } }).toArray();
+    const authorDocs = await User.find({ id: { $in: authorIds } });
 
     const messagesWithCurrentNames = channelMessages.map((msg) => {
-      if (msg.type === "system") return msg;
-      const author = authorDocs.find((u) => u.id === msg.authorId);
+      const msgObj = msg.toObject();
+      if (msgObj.type === "system") return msgObj;
+      const author = authorDocs.find((u) => u.id === msgObj.authorId);
       return { 
-          ...msg, 
-          authorName: author ? author.username : msg.authorName,
+          ...msgObj, 
+          authorName: author ? author.username : msgObj.authorName,
           authorAvatarUrl: author?.avatarUrl || null
       };
     });
@@ -418,8 +396,7 @@ const postMessage = async (req, res) => {
   }
 
   try {
-    const db = getDB();
-    const server = await db.collection("servers").findOne({ id });
+    const server = await Server.findOne({ id });
 
     if (!server) {
       return res.status(404).json({ error: "Server not found" });
@@ -434,8 +411,7 @@ const postMessage = async (req, res) => {
       return res.status(404).json({ error: "Channel not found" });
     }
 
-    const newMessage = {
-      id: Date.now(),
+    const newMessage = new Message({
       serverId: id,
       channelId,
       authorId: req.user.id,
@@ -443,10 +419,9 @@ const postMessage = async (req, res) => {
       content: content ? content.trim() : "",
       attachmentUrl: attachmentUrl || null,
       type: "user",
-      timestamp: new Date().toISOString(),
-    };
+    });
 
-    await db.collection("messages").insertOne(newMessage);
+    await newMessage.save();
     res.status(201).json(newMessage);
   } catch (err) {
     console.error("postMessage error:", err);

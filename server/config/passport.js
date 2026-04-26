@@ -1,6 +1,6 @@
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
-const { getDB } = require("../database/db");
+const User = require("../models/User");
 
 passport.use(
   new GoogleStrategy(
@@ -11,11 +11,8 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        const db = getDB();
-        const users = db.collection("users");
-
         // Check if user already exists by googleId
-        let user = await users.findOne({ googleId: profile.id });
+        let user = await User.findOne({ googleId: profile.id });
 
         if (user) {
           return done(null, user);
@@ -23,36 +20,29 @@ passport.use(
 
         // Check if a user with the same email already exists (manual signup)
         const email = profile.emails?.[0]?.value;
-        const existingEmailUser = await users.findOne({ email });
+        const existingEmailUser = await User.findOne({ email });
 
         if (existingEmailUser) {
           // Link Google account to existing user (also sync Google photo if they have no avatar)
-          const linkFields = { googleId: profile.id };
+          existingEmailUser.googleId = profile.id;
           const googlePhoto = profile.photos?.[0]?.value || null;
           if (googlePhoto && !existingEmailUser.avatarUrl) {
-            linkFields.avatarUrl = googlePhoto;
+            existingEmailUser.avatarUrl = googlePhoto;
           }
-          await users.updateOne(
-            { email },
-            { $set: linkFields }
-          );
-          const updatedUser = await users.findOne({ email });
-          return done(null, updatedUser);
+          await existingEmailUser.save();
+          return done(null, existingEmailUser);
         }
 
         // Create a new user from Google profile
         const googlePhoto = profile.photos?.[0]?.value || null;
-        const newUser = {
-          id: Date.now(),
+        const newUser = new User({
           username: profile.displayName || profile.name?.givenName || "User",
           email: email,
-          dob: null,
-          password: null,     // No password for OAuth users
           googleId: profile.id,
-          avatarUrl: googlePhoto, // Store Google profile picture
-        };
+          avatarUrl: googlePhoto,
+        });
 
-        await users.insertOne(newUser);
+        await newUser.save();
         return done(null, newUser);
       } catch (err) {
         return done(err, null);
@@ -69,8 +59,7 @@ passport.serializeUser((user, done) => {
 // Deserialize user from session
 passport.deserializeUser(async (id, done) => {
   try {
-    const db = getDB();
-    const user = await db.collection("users").findOne({ id });
+    const user = await User.findOne({ id });
     done(null, user);
   } catch (err) {
     done(err, null);
