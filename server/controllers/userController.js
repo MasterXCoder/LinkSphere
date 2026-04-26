@@ -10,10 +10,7 @@ const SECRET = process.env.JWT_SECRET || "fallback-secret";
 // ─── Signup ───────────────────────────────────────────────────────────────────
 const signup = catchAsync(async (req, res) => {
   const { username, email, password, dob } = req.body;
-
-  if (!username || !email || !password || !dob) {
-    throw new ApiError(400, "All fields are required");
-  }
+  // Note: presence & format validated by Zod middleware (signupSchema)
 
   const existingUser = await User.findOne({ email });
   if (existingUser) {
@@ -36,10 +33,7 @@ const signup = catchAsync(async (req, res) => {
 // ─── Login ────────────────────────────────────────────────────────────────────
 const login = catchAsync(async (req, res) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    throw new ApiError(400, "Email and password are required");
-  }
+  // Note: presence & format validated by Zod middleware (loginSchema)
 
   const user = await User.findOne({ email });
 

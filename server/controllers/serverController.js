@@ -19,9 +19,7 @@ const createServer = catchAsync(async (req, res) => {
   const userId = req.user.id;
   const username = req.user.username;
 
-  if (!name || !name.trim()) {
-    throw new ApiError(400, "Server name is required");
-  }
+  // Note: name & iconUrl validated by Zod middleware (createServerSchema)
 
   const randomColor = SERVER_COLORS[Math.floor(Math.random() * SERVER_COLORS.length)];
   const now = Date.now();
@@ -120,7 +118,7 @@ const createChannel = catchAsync(async (req, res) => {
   const id = Number(req.params.id);
   const { name } = req.body;
 
-  if (!name?.trim()) throw new ApiError(400, "Channel name required");
+  // Note: name validated by Zod middleware (createChannelSchema)
 
   const server = await Server.findOne({ id });
   if (!server) throw new ApiError(404, "Server not found");
@@ -278,7 +276,7 @@ const postMessage = catchAsync(async (req, res) => {
   const { channelId } = req.params;
   const { content, attachmentUrl } = req.body;
 
-  if (!content?.trim() && !attachmentUrl) throw new ApiError(400, "Message empty");
+  // Note: content/attachmentUrl combo validated by Zod middleware (postMessageSchema)
 
   const server = await Server.findOne({ id });
   if (!server) throw new ApiError(404, "Server not found");
