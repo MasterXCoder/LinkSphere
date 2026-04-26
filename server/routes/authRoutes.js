@@ -20,11 +20,21 @@ router.get(
 // ── Google OAuth callback ─────────────────────────────────────────────────────
 router.get(
   "/google/callback",
-  passport.authenticate("google", {
-    session: false,
-    failureRedirect: `${CLIENT_URL}/login`,
-  }),
+  (req, res, next) => {
+    passport.authenticate("google", { session: false }, (err, user, info) => {
+      console.log("GOOGLE AUTH RESULT -> err:", err, "user:", user, "info:", info);
+      if (err) {
+        return res.redirect(`${CLIENT_URL}/login?error=auth_error`);
+      }
+      if (!user) {
+        return res.redirect(`${CLIENT_URL}/login?error=no_user`);
+      }
+      req.user = user;
+      next();
+    })(req, res, next);
+  },
   (req, res) => {
+    console.log("Generating JWT for user:", req.user.username);
     // Generate JWT — same payload shape as existing login
     const token = jwt.sign(
       { id: req.user.id, username: req.user.username },
@@ -44,6 +54,7 @@ router.get(
       })
     );
 
+    console.log("Redirecting to frontend...");
     // Redirect to frontend with token + user data in query params
     res.redirect(`${CLIENT_URL}/oauth-callback?token=${token}&user=${userData}`);
   }
