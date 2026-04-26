@@ -12,6 +12,62 @@ node_modules/
 client/node_modules/
 .env
 client/.env
+client/node_modules
 
 
 client/.gitignore
+
+# Node modules
+node_modules/
+client/node_modules/
+
+#Production build
+server/dist/
+client/dist/
+
+# Logs
+logs/
+
+# Environment variables
+.env
+.env.local
+client/.env
+client/.env.local
+
+# IDE / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Optional
+*.iml
+*.iws
+*.ipr
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Build artifacts
+build/
+dist/
+coverage/
+
+# Testing
+.nyc_output/
+
+# Optional: Large media files (uncomment if needed)
+# media/
+# uploads/
+
+# Git-specific
+.gitignore
+.gitignore_global
+
+# npm cache
+.npm
+.node-gyp
+
+# Optional: if you use pm2 or similar
+.pm2/

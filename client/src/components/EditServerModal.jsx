@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styles from './CreateServerModal.module.css'; // Reusing same styles
 
-const API = "http://localhost:8000/api";
+const API = "/api";
 
 const EditServerModal = ({ server, onClose, onUpdated }) => {
     const [serverName, setServerName] = useState(server?.name || "");

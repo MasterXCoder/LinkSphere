@@ -6,7 +6,9 @@
   "scripts": {
     "server": "nodemon --no-stdin server/server.js",
     "client": "npm run dev --prefix client",
-    "dev": "concurrently --kill-others-on-fail \"npm run server\" \"npm run client\""
+    "dev": "concurrently --kill-others-on-fail \"npm run server\" \"npm run client\"",
+    "build": "npm install --prefix client && npm run build --prefix client",
+    "start": "node server/server.js"
   },
   "keywords": [],
   "author": "",

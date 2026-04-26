@@ -16,7 +16,7 @@ export default function UserSettings({ onClose }) {
       try {
         const userId = auth.user?.id;
         if (!userId || !auth.token) return;
-        const res = await fetch(`http://localhost:8000/api/users/${userId}`, {
+        const res = await fetch(`/api/users/${userId}`, {
           headers: { "Authorization": `Bearer ${auth.token}` }
         });
         if (res.ok) {
@@ -80,7 +80,7 @@ export default function UserSettings({ onClose }) {
       const formData = new FormData();
       formData.append("image", file);
 
-      const uploadRes = await fetch("http://localhost:8000/api/upload", {
+      const uploadRes = await fetch("/api/upload", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${auth.token}`,
@@ -98,7 +98,7 @@ export default function UserSettings({ onClose }) {
       const uploadData = await uploadRes.json();
       const newAvatarUrl = uploadData.url;
 
-      const updateRes = await fetch(`http://localhost:8000/api/users/${auth.user?.id}`, {
+      const updateRes = await fetch(`/api/users/${auth.user?.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -132,7 +132,7 @@ export default function UserSettings({ onClose }) {
     try {
       // 1. Verify password via login endpoint (since there's no dedicated verify route)
       const cachedEmail = auth.user?.email;
-      const loginRes = await fetch("http://localhost:8000/api/users/login", {
+      const loginRes = await fetch("/api/users/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cachedEmail, password: editPassword })
@@ -156,7 +156,7 @@ export default function UserSettings({ onClose }) {
       if (editMode === 'username') body.username = editValue;
       if (editMode === 'email') body.email = editValue;
 
-      const updateRes = await fetch(`http://localhost:8000/api/users/${userId}`, {
+      const updateRes = await fetch(`/api/users/${userId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -213,7 +213,7 @@ export default function UserSettings({ onClose }) {
     try {
       // 1. Verify current password via login endpoint
       const cachedEmail = auth.user?.email;
-      const loginRes = await fetch("http://localhost:8000/api/users/login", {
+      const loginRes = await fetch("/api/users/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cachedEmail, password: passwordCurrent })
@@ -231,7 +231,7 @@ export default function UserSettings({ onClose }) {
 
       // 2. Perform the update with new password
       const userId = auth.user?.id;
-      const updateRes = await fetch(`http://localhost:8000/api/users/${userId}`, {
+      const updateRes = await fetch(`/api/users/${userId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -278,7 +278,7 @@ export default function UserSettings({ onClose }) {
 
     try {
       const userId = auth.user?.id;
-      const res = await fetch(`http://localhost:8000/api/users/${userId}`, {
+      const res = await fetch(`/api/users/${userId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -315,7 +315,7 @@ export default function UserSettings({ onClose }) {
     try {
       // 1. Verify password via login endpoint
       const cachedEmail = auth.user?.email;
-      const loginRes = await fetch("http://localhost:8000/api/users/login", {
+      const loginRes = await fetch("/api/users/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cachedEmail, password: deletePassword })
@@ -332,7 +332,7 @@ export default function UserSettings({ onClose }) {
 
       // 2. Perform the delete with fresh valid token
       const userId = auth.user?.id;
-      const res = await fetch(`http://localhost:8000/api/users/${userId}`, {
+      const res = await fetch(`/api/users/${userId}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${newToken}`

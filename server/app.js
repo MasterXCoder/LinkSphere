@@ -36,6 +36,16 @@ app.get("/api/health", (req, res) => {
 const { errorConverter, errorHandler } = require("./middleware/errorMiddleware");
 const ApiError = require("./utils/ApiError");
 
+const path = require("path");
+
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../client/dist")));
+
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.resolve(__dirname, "../client/dist", "index.html"));
+  });
+}
+
 // send back a 404 error for any unknown api request
 app.use((req, res, next) => {
     next(new ApiError(404, "Not found"));

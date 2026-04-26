@@ -28,7 +28,7 @@ export default function Signup() {
     try {
       const { confirmPassword, ...payload } = data;
 
-      const res = await fetch("http://localhost:8000/api/users/signup", {
+      const res = await fetch("/api/users/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

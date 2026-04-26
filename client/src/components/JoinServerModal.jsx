@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styles from './CreateServerModal.module.css';
 
-const API = "http://localhost:8000/api";
+const API = "/api";
 
 export default function JoinServerModal({ onClose, onJoined }) {
     const [serverId, setServerId] = useState("");

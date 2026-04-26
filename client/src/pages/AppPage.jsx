@@ -8,7 +8,7 @@ import Logo from '../components/Logo';
 import styles from "./AppPage.module.css";
 import UserSettings from "./UserSettings";
 
-const API = "http://localhost:8000/api";
+const API = "/api";
 
 // Status config — defined at module level so it's stable across renders
 const STATUSES = {
@@ -43,7 +43,7 @@ export default function AppPage() {
   // Initialize socket
   useEffect(() => {
     if (token) {
-      const newSocket = io("http://localhost:8000", {
+      const newSocket = io("", {
         auth: { token },
       });
       setSocket(newSocket);

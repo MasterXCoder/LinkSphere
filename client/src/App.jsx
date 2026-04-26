@@ -39,7 +39,7 @@ function InvitePage() {
 
     const joinServer = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/servers/invite/${code}/join`, {
+        const res = await fetch(`/api/servers/invite/${code}/join`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

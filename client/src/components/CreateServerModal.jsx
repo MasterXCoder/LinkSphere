@@ -8,7 +8,7 @@ const templates = [
     { icon: "🏫", label: 'School Club' },
 ];
 
-const API = "http://localhost:8000/api";
+const API = "/api";
 
 const CreateServerModal = ({ onClose, onCreated }) => {
     // Current view within the modal ('main', 'tellUsMore', 'customize', 'join')
@@ -281,7 +281,7 @@ const CreateServerModal = ({ onClose, onCreated }) => {
                                 <h3 className={styles.examplesTitle}>Invites should look like</h3>
                                 <div className={styles.tagsContainer}>
                                     <span className={styles.tag}>a1b2c3d4</span>
-                                    <span className={styles.tag}>http://localhost:5173/invite/a1b2c3d4</span>
+                                    <span className={styles.tag}>https://yourdomain.com/invite/a1b2c3d4</span>
                                 </div>
                             </div>
 

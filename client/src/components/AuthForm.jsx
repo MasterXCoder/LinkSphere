@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import Logo from "./Logo";
 import styles from "./AuthForm.module.css";
 
-const GOOGLE_AUTH_URL = "http://localhost:8000/api/auth/google";
+const GOOGLE_AUTH_URL = "/api/auth/google";
 
 export default function AuthForm({
   title, subtitle, fields,
