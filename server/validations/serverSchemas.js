@@ -28,7 +28,7 @@ const createChannelSchema = z.object({
     .max(50, "Channel name cannot exceed 50 characters")
     .regex(/^[a-z0-9-]+$/, "Channel name can only contain lowercase letters, numbers, and hyphens")
     .trim(),
-  type: z.enum(["text", "voice"]).optional().default("text"),
+  type: z.enum(["text"]).optional().default("text"),
 });
 
 const postMessageSchema = z.object({

@@ -56,8 +56,6 @@ export default function AppPage() {
   const [activeServer, setActiveServer] = useState("home");
   const [serverData, setServerData] = useState(null); // full server details + members
   const [activeChannel, setActiveChannel] = useState(null);
-  const [activeVoiceChannel, setActiveVoiceChannel] = useState(null);
-  const [voiceRooms, setVoiceRooms] = useState({});
   const [messages, setMessages] = useState([]);
   const [msgInput, setMsgInput] = useState("");
   const [friendInput, setFriendInput] = useState("");
@@ -220,22 +218,12 @@ export default function AppPage() {
   }, [activeServer, fetchServerData]);
 
 
-  // Listen to global voice rooms update
-  useEffect(() => {
-    if (!socket) return;
-    const handleVoiceUpdate = (rooms) => {
-      setVoiceRooms(rooms);
-    };
-    socket.on("voice_rooms_update", handleVoiceUpdate);
-    return () => socket.off("voice_rooms_update", handleVoiceUpdate);
-  }, [socket]);
+
 
   // ── Fetch messages for active channel + poll every 3s ──
   const fetchMessages = useCallback(async () => {
     if (activeServer === "home" || !activeServer || !activeChannel) return;
-    // Don't fetch messages if it's a voice channel and activeChannel matches
-    const activeChannelObj = serverData?.channels?.find(c => c.id === activeChannel);
-    if (activeChannelObj?.type === "voice") return;
+
     try {
       const res = await fetch(
         `${API}/servers/${activeServer}/channels/${activeChannel}/messages`,
@@ -414,7 +402,6 @@ export default function AppPage() {
   const currentServer = servers.find((s) => s.id === activeServer);
   const activeChannelObj = channels.find((c) => c.id === activeChannel);
   const activeChannelName = activeChannelObj?.name || "";
-  const isVoiceChannel = activeChannelObj?.type === "voice";
 
   // ── User Info Bar ──
   const UserInfoBar = () => (
@@ -680,71 +667,7 @@ export default function AppPage() {
                 </button>
               ))}
 
-              <div className={styles.categoryHeader} style={{ marginTop: 16 }}>
-                <span>Voice Channels</span>
-              </div>
-              {channels.filter(ch => ch.type === "voice").map((ch) => (
-                <div key={ch.id} className={styles.voiceChannelWrapper}>
-                  <button
-                    className={`${styles.channel} ${activeChannel === ch.id ? styles.activeChannel : ""}`}
-                    onClick={() => { setActiveChannel(ch.id); setActiveVoiceChannel(ch.id); }}
-                  >
-                    <div className={styles.channelLeft}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6, color: '#80848e' }}>
-                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                        <line x1="12" x2="12" y1="19" y2="22" />
-                      </svg>
-                      {ch.name}
-                    </div>
-                    {serverData?.ownerId === userId && (
-                      <div className={styles.channelRight}>
-                        <svg
-                          onClick={(e) => handleDeleteChannel(e, ch.id)}
-                          className={styles.channelDeleteIcon}
-                          width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                        >
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                          <line x1="10" y1="11" x2="10" y2="17"></line>
-                          <line x1="14" y1="11" x2="14" y2="17"></line>
-                        </svg>
-                      </div>
-                    )}
-                  </button>
-                  {voiceRooms[ch.id] && voiceRooms[ch.id].length > 0 && (
-                    <div className={styles.voiceUsersList}>
-                      {voiceRooms[ch.id].map(u => (
-                        <div key={u.socketId} className={styles.voiceUserItem}>
-                          <div className={styles.voiceUserAvatar}>
-                            {u.avatarUrl ? <img src={u.avatarUrl} alt="" /> : u.username[0].toUpperCase()}
-                          </div>
-                          <span>{u.username}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
             </section>
-
-            {/* Voice Connected Panel */}
-            {activeVoiceChannel && (
-              <div className={styles.voiceConnectedPanel}>
-                <div className={styles.voiceStatusText}>
-                  <div style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-                    Voice Connected
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#949ba4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {channels.find(c => c.id === activeVoiceChannel)?.name} / {currentServer?.name}
-                  </div>
-                </div>
-                <button className={styles.disconnectBtn} onClick={() => setActiveVoiceChannel(null)} title="Disconnect">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"></path><line x1="23" y1="1" x2="1" y2="23"></line></svg>
-                </button>
-              </div>
-            )}
           </>
         )}
         <UserInfoBar />
@@ -815,15 +738,7 @@ export default function AppPage() {
           <>
             <header className={styles.topHeader}>
               <div className={styles.headerLeft}>
-                {isVoiceChannel ? (
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 8, color: '#80848e' }}>
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" x2="12" y1="19" y2="22" />
-                  </svg>
-                ) : (
-                  <span className={styles.hash} style={{ marginRight: 8 }}>#</span>
-                )}
+                <span className={styles.hash} style={{ marginRight: 8 }}>#</span>
                 <span className={styles.headerTitle}>{activeChannelName}</span>
               </div>
               <div className={styles.headerRight}>
@@ -834,18 +749,7 @@ export default function AppPage() {
               </div>
             </header>
 
-            {activeVoiceChannel && (
-              <VoiceChannel
-                socket={socket}
-                channelId={activeVoiceChannel}
-                userId={userId}
-                username={username}
-                avatarUrl={user?.avatarUrl}
-                visible={isVoiceChannel && activeChannel === activeVoiceChannel}
-              />
-            )}
-
-            <div className={styles.chatLayout} style={{ display: (isVoiceChannel && activeChannel === activeVoiceChannel) ? 'none' : 'flex' }}>
+            <div className={styles.chatLayout}>
               {/* Messages area */}
               <div className={styles.chatArea}>
                 <div className={styles.messageList}>

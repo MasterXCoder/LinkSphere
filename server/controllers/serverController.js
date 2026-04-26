@@ -35,7 +35,6 @@ const createServer = catchAsync(async (req, res) => {
     channels: [
       { id: `ch_${now}_1`, name: "general", type: "text" },
       { id: `ch_${now}_2`, name: "random",  type: "text" },
-      { id: `ch_${now}_3`, name: "general-voice", type: "voice" },
     ],
   });
 
