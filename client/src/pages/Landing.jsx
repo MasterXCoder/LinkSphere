@@ -13,7 +13,7 @@ const COLLABORATORS = [
 const FEATURES = [
   {
     title: "Create servers & channels",
-    desc: "Set up your own space with text and voice channels. Organize conversations by topic, project, or just vibes. Everything in one place.",
+    desc: "Set up your own space with text channels. Organize conversations by topic, project, or just vibes. Everything in one place.",
     gradient: "purple",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className={styles.featureIcon}>
@@ -113,7 +113,6 @@ export default function Landing() {
                 <div className={styles.channelItem}><span className={styles.hash}>#</span> general</div>
                 <div className={`${styles.channelItem} ${styles.activeChannel}`}><span className={styles.hash}>#</span> gaming</div>
                 <div className={styles.channelItem}><span className={styles.hash}>#</span> music</div>
-                <div className={styles.channelItem}><span className={styles.voiceIcon}>🔊</span> Voice Lounge</div>
               </div>
               
               <div className={styles.mockupChat}>
@@ -175,7 +174,6 @@ export default function Landing() {
                     <div className={styles.miniChannel}># announcements</div>
                     <div className={styles.miniChannel}># welcome</div>
                     <div className={`${styles.miniChannel} ${styles.miniActive}`}># general</div>
-                    <div className={styles.miniChannel}>🔊 Voice Chat</div>
                   </div>
                 </div>
               )}

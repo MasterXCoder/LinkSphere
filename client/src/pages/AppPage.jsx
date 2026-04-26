@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { io } from "socket.io-client";
 import { useAuth } from '../context/AuthContext';
 import CreateServerModal from '../components/CreateServerModal';
+import EditServerModal from '../components/EditServerModal';
 import Logo from '../components/Logo';
 import styles from "./AppPage.module.css";
 import UserSettings from "./UserSettings";
@@ -36,6 +38,19 @@ export default function AppPage() {
   const userPopupRef = useRef(null);
   const mainAreaRef = useRef(null); // Ref for tracking cursor position
 
+  const [socket, setSocket] = useState(null);
+
+  // Initialize socket
+  useEffect(() => {
+    if (token) {
+      const newSocket = io("http://localhost:8000", {
+        auth: { token },
+      });
+      setSocket(newSocket);
+      return () => newSocket.close();
+    }
+  }, [token]);
+
   // ── State ──
   const [servers, setServers] = useState([]);
   const [activeServer, setActiveServer] = useState("home");
@@ -43,10 +58,10 @@ export default function AppPage() {
   const [activeChannel, setActiveChannel] = useState(null);
   const [messages, setMessages] = useState([]);
   const [msgInput, setMsgInput] = useState("");
-  const [isMuted, setIsMuted] = useState(true);
   const [friendInput, setFriendInput] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [isServerModalOpen, setIsServerModalOpen] = useState(false);
+  const [isEditServerModalOpen, setIsEditServerModalOpen] = useState(false);
 
   // Channel Creation State
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
@@ -56,7 +71,6 @@ export default function AppPage() {
   const [toast, setToast] = useState("");
   const [showUserPopup, setShowUserPopup] = useState(false);
   const [showStatusSubmenu, setShowStatusSubmenu] = useState(false);
-  const [isDeafened, setIsDeafened] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('online');
 
   // Attachment State
@@ -91,7 +105,7 @@ export default function AppPage() {
       const res = await fetch(`${API}/servers/${activeServer}/channels`, {
         method: "POST",
         headers: authHeaders(token),
-        body: JSON.stringify({ name: newChannelName }),
+        body: JSON.stringify({ name: newChannelName, type: "text" }),
       });
 
       if (res.ok) {
@@ -173,40 +187,43 @@ export default function AppPage() {
   }, [showUserPopup]);
 
   // ── Fetch full server data when active server changes ──
+  const fetchServerData = useCallback(async () => {
+    if (activeServer === "home" || !activeServer) return;
+    try {
+      const res = await fetch(`${API}/servers/${activeServer}`, { headers: authHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setServerData(data);
+        if (data.channels.length > 0) {
+          setActiveChannel((prev) => {
+            const exists = data.channels.find((c) => c.id === prev);
+            return exists ? prev : data.channels[0].id;
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch server:", err);
+    }
+  }, [activeServer, token]);
+
   useEffect(() => {
-    if (activeServer === "home" || !activeServer) {
+    if (activeServer !== "home" && activeServer) {
+      fetchServerData();
+    } else {
       setServerData(null);
       setActiveChannel(null);
       setMessages([]);
       setShowServerMenu(false);
-      return;
     }
+  }, [activeServer, fetchServerData]);
 
-    const fetchServerData = async () => {
-      try {
-        const res = await fetch(`${API}/servers/${activeServer}`, { headers: authHeaders(token) });
-        if (res.ok) {
-          const data = await res.json();
-          setServerData(data);
-          // Auto-select first channel if none selected
-          if (data.channels.length > 0) {
-            setActiveChannel((prev) => {
-              const exists = data.channels.find((c) => c.id === prev);
-              return exists ? prev : data.channels[0].id;
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch server:", err);
-      }
-    };
 
-    fetchServerData();
-  }, [activeServer, token]);
+
 
   // ── Fetch messages for active channel + poll every 3s ──
   const fetchMessages = useCallback(async () => {
     if (activeServer === "home" || !activeServer || !activeChannel) return;
+
     try {
       const res = await fetch(
         `${API}/servers/${activeServer}/channels/${activeChannel}/messages`,
@@ -223,10 +240,25 @@ export default function AppPage() {
 
   useEffect(() => {
     fetchMessages();
-    // Poll every 3 seconds
-    pollRef.current = setInterval(fetchMessages, 3000);
-    return () => clearInterval(pollRef.current);
-  }, [fetchMessages]);
+
+    if (socket && activeChannel && activeServer !== "home") {
+      socket.emit("join_channel", activeChannel);
+
+      const handleNewMessage = (msg) => {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      };
+
+      socket.on("new_message", handleNewMessage);
+
+      return () => {
+        socket.off("new_message", handleNewMessage);
+        socket.emit("leave_channel", activeChannel);
+      };
+    }
+  }, [fetchMessages, socket, activeChannel, activeServer]);
 
   // ── Auto-scroll chat ──
   useEffect(() => {
@@ -272,7 +304,7 @@ export default function AppPage() {
         {
           method: "POST",
           headers: authHeaders(token),
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             content: msgInput,
             attachmentUrl: finalAttachmentUrl
           }),
@@ -280,7 +312,6 @@ export default function AppPage() {
       );
       setMsgInput("");
       cancelAttachment();
-      fetchMessages();
     } catch (err) {
       console.error("Failed to send message:", err);
     } finally {
@@ -369,7 +400,8 @@ export default function AppPage() {
   const channels = serverData?.channels || [];
   const members = serverData?.membersData || [];
   const currentServer = servers.find((s) => s.id === activeServer);
-  const activeChannelName = channels.find((c) => c.id === activeChannel)?.name || "";
+  const activeChannelObj = channels.find((c) => c.id === activeChannel);
+  const activeChannelName = activeChannelObj?.name || "";
 
   // ── User Info Bar ──
   const UserInfoBar = () => (
@@ -471,39 +503,6 @@ export default function AppPage() {
       </div>
 
       <div className={styles.userControls}>
-        <button
-          type="button"
-          className={`${styles.userIconBtn} ${isMuted ? styles.userIconBtnDanger : ""}`}
-          onClick={() => setIsMuted(!isMuted)}
-          title={isMuted ? "Unmute" : "Mute"}
-        >
-          {isMuted ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-          )}
-        </button>
-        <button
-          type="button"
-          className={`${styles.userIconBtn} ${isDeafened ? styles.userIconBtnDanger : ""}`}
-          onClick={() => setIsDeafened(!isDeafened)}
-          title={isDeafened ? "Undeafen" : "Deafen"}
-        >
-          {isDeafened ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="1" y1="1" x2="23" y2="23" />
-              <path d="M4.24 4.24A9.9 9.9 0 0 0 2 12v1a3 3 0 0 0 3 3h1a1 1 0 0 0 1-1V11a1 1 0 0 0-1-1H3a9.96 9.96 0 0 1 2.02-5.76" />
-              <path d="M18 11h-1a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h1a3 3 0 0 0 3-3v-1a9.96 9.96 0 0 0-2.02-5.76" />
-              <path d="M12 2a9.96 9.96 0 0 1 5.76 2.02" />
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
-              <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" />
-              <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
-            </svg>
-          )}
-        </button>
         <button type="button" className={styles.userIconBtn} title="User Settings" onClick={() => setShowSettings(true)}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" clipRule="evenodd" d="M19.738 10H22V14H19.739C19.498 14.931 19.1 15.798 18.565 16.564L20.166 18.166L17.336 20.995L15.736 19.396C14.998 19.901 14.167 20.279 13.279 20.505V23H9.279V20.505C8.391 20.28 7.559 19.901 6.822 19.396L5.222 20.995L2.392 18.166L3.993 16.564C3.458 15.798 3.06 14.931 2.819 14H0.5V10H2.819C3.06 9.069 3.458 8.202 3.993 7.436L2.392 5.834L5.222 3.005L6.822 4.604C7.559 4.099 8.391 3.721 9.279 3.495V1H13.279V3.495C14.167 3.72 14.998 4.099 15.736 4.604L17.336 3.005L20.166 5.834L18.565 7.436C19.1 8.202 19.498 9.069 19.738 10ZM11.279 16C13.488 16 15.279 14.209 15.279 12C15.279 9.791 13.488 8 11.279 8C9.07 8 7.279 9.791 7.279 12C7.279 14.209 9.07 16 11.279 16Z" />
@@ -606,6 +605,12 @@ export default function AppPage() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
                   Invite People
                 </button>
+                {serverData?.ownerId === userId && (
+                  <button className={styles.dropdownItem} onClick={() => { setIsEditServerModalOpen(true); setShowServerMenu(false); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                    Server Settings
+                  </button>
+                )}
                 {serverData?.ownerId !== userId && (
                   <button className={`${styles.dropdownItem} ${styles.dropdownDanger}`} onClick={handleLeaveServer}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
@@ -634,7 +639,7 @@ export default function AppPage() {
                   </button>
                 )}
               </div>
-              {channels.map((ch) => (
+              {channels.filter(ch => ch.type === "text" || !ch.type).map((ch) => (
                 <button
                   key={ch.id}
                   className={`${styles.channel} ${activeChannel === ch.id ? styles.activeChannel : ""}`}
@@ -661,6 +666,7 @@ export default function AppPage() {
                   )}
                 </button>
               ))}
+
             </section>
           </>
         )}
@@ -875,12 +881,21 @@ export default function AppPage() {
         />
       )}
 
+      {isEditServerModalOpen && (
+        <EditServerModal
+          server={serverData}
+          onClose={() => setIsEditServerModalOpen(false)}
+          onUpdated={() => { fetchServers(); fetchServerData(); }}
+        />
+      )}
+
       {/* CHANNEL MODAL GATEKEEPER */}
       {isChannelModalOpen && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
-            <h3>Create Text Channel</h3>
+            <h3>Create Channel</h3>
             <form onSubmit={handleCreateChannel}>
+
               <input
                 type="text"
                 placeholder="new-channel"

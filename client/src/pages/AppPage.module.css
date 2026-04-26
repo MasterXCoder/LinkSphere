@@ -332,7 +332,6 @@
   justify-content: space-between;
   background: var(--bg-deep);
   border-top: 1px solid var(--border);
-  margin-top: auto;
 }
 
 .userLeft {
@@ -1592,3 +1591,4 @@
 .spinning {
   animation: spin 1s linear infinite;
 }
+
