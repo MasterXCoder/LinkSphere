@@ -1,14 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function OAuthCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const auth = useAuth();
+  const { login } = useAuth();
   const [error, setError] = useState("");
+  const hasRun = useRef(false);
 
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
+
     const token = searchParams.get("token");
     const userParam = searchParams.get("user");
 
@@ -20,14 +24,14 @@ export default function OAuthCallback() {
 
     try {
       const user = JSON.parse(decodeURIComponent(userParam));
-      auth.login({ token, user });
+      login({ token, user });
       navigate("/app", { replace: true });
     } catch (err) {
       console.error("OAuth callback error:", err);
       setError("Authentication failed. Please try again.");
       setTimeout(() => navigate("/login", { replace: true }), 2000);
     }
-  }, [searchParams, navigate, auth]);
+  }, [searchParams, navigate, login]);
 
   return (
     <div style={{

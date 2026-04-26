@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
             username: localStorage.getItem("username") || "User",
             email: localStorage.getItem("email") || "",
             dob: localStorage.getItem("dob") || "",
+            hasPassword: localStorage.getItem("hasPassword") !== "false",
         };
     });
 
@@ -22,13 +23,15 @@ export function AuthProvider({ children }) {
         localStorage.setItem("username", userData.username);
         localStorage.setItem("email", userData.email);
         localStorage.setItem("dob", userData.dob);
-        
+        localStorage.setItem("hasPassword", userData.hasPassword === false ? "false" : "true");
+
         setToken(newToken);
         setUser({
             id: userData.id,
             username: userData.username,
             email: userData.email,
             dob: userData.dob,
+            hasPassword: userData.hasPassword !== false,
         });
     }, []);
 
@@ -38,7 +41,8 @@ export function AuthProvider({ children }) {
         localStorage.removeItem("username");
         localStorage.removeItem("email");
         localStorage.removeItem("dob");
-        
+        localStorage.removeItem("hasPassword");
+
         setToken(null);
         setUser(null);
     }, []);
@@ -47,11 +51,12 @@ export function AuthProvider({ children }) {
         setUser((prev) => {
             if (!prev) return prev;
             const updated = { ...prev, ...fields };
-            
+
             if (fields.username) localStorage.setItem("username", fields.username);
             if (fields.email) localStorage.setItem("email", fields.email);
             if (fields.dob) localStorage.setItem("dob", fields.dob);
-            
+            if (fields.hasPassword !== undefined) localStorage.setItem("hasPassword", String(fields.hasPassword));
+
             return updated;
         });
     }, []);

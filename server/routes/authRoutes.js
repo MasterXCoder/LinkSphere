@@ -39,6 +39,7 @@ router.get(
         username: req.user.username,
         email: req.user.email,
         dob: req.user.dob || "",
+        hasPassword: !!req.user.password,
       })
     );
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styles from './UserSettings.module.css';
@@ -8,6 +8,29 @@ export default function UserSettings({ onClose }) {
   const auth = useAuth();
   const username = auth.user?.username || "User";
   const email = auth.user?.email || "user@example.com";
+  const hasPassword = auth.user?.hasPassword !== false;
+
+  // Fetch fresh user data on mount to sync hasPassword from the database
+  useEffect(() => {
+    const syncUser = async () => {
+      try {
+        const userId = auth.user?.id;
+        if (!userId || !auth.token) return;
+        const res = await fetch(`http://localhost:8000/api/users/${userId}`, {
+          headers: { "Authorization": `Bearer ${auth.token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.hasPassword !== undefined) {
+            auth.updateUser({ hasPassword: data.hasPassword });
+          }
+        }
+      } catch (err) {
+        // silently ignore — worst case they see stale data
+      }
+    };
+    syncUser();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mask email for display
   const [showEmail, setShowEmail] = useState(false);
@@ -35,6 +58,13 @@ export default function UserSettings({ onClose }) {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState("");
+
+  // Add Password state (for Google users without a password)
+  const [showAddPasswordModal, setShowAddPasswordModal] = useState(false);
+  const [addPwNew, setAddPwNew] = useState("");
+  const [addPwConfirm, setAddPwConfirm] = useState("");
+  const [addPwLoading, setAddPwLoading] = useState(false);
+  const [addPwError, setAddPwError] = useState("");
 
   const maskedEmail = currentEmail.replace(/^(.{2})(.*)(@.*)$/, (_, a, b, c) => a + '*'.repeat(b.length) + c);
 
@@ -171,6 +201,52 @@ export default function UserSettings({ onClose }) {
       setPasswordError("Could not connect to server.");
     } finally {
       setPasswordLoading(false);
+    }
+  };
+
+  // ── Add Password (for Google OAuth users) ───────────────────────────────────
+  const handleAddPassword = async (e) => {
+    e.preventDefault();
+    setAddPwError("");
+
+    if (addPwNew !== addPwConfirm) {
+      setAddPwError("Passwords do not match.");
+      return;
+    }
+    if (addPwNew.length < 6) {
+      setAddPwError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setAddPwLoading(true);
+
+    try {
+      const userId = auth.user?.id;
+      const res = await fetch(`http://localhost:8000/api/users/${userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${auth.token}`
+        },
+        body: JSON.stringify({ password: addPwNew })
+      });
+
+      if (res.ok) {
+        auth.updateUser({ hasPassword: true });
+        setShowAddPasswordModal(false);
+        setAddPwNew("");
+        setAddPwConfirm("");
+        setSuccessToast("Password added successfully!");
+        setTimeout(() => setSuccessToast(""), 3000);
+      } else {
+        const json = await res.json();
+        setAddPwError(json.error || "Failed to set password.");
+      }
+    } catch (err) {
+      console.error(err);
+      setAddPwError("Could not connect to server.");
+    } finally {
+      setAddPwLoading(false);
     }
   };
 
@@ -360,7 +436,11 @@ export default function UserSettings({ onClose }) {
           {/* Password and Authentication */}
           <div className={styles.sectionContainer}>
             <h2 className={styles.sectionTitle}>Password and Authentication</h2>
-            <button className={styles.primaryBtn} onClick={() => { setShowPasswordModal(true); setPasswordError(""); }}>Change Password</button>
+            {hasPassword ? (
+              <button className={styles.primaryBtn} onClick={() => { setShowPasswordModal(true); setPasswordError(""); }}>Change Password</button>
+            ) : (
+              <button className={styles.primaryBtn} onClick={() => { setShowAddPasswordModal(true); setAddPwError(""); }}>Add Password</button>
+            )}
           </div>
 
           <div className={styles.sectionDivider}></div>
@@ -549,6 +629,62 @@ export default function UserSettings({ onClose }) {
                   disabled={passwordLoading || !passwordCurrent || !passwordNew || !passwordConfirm}
                 >
                   {passwordLoading ? "Saving..." : "Done"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Password Modal (for Google OAuth users) */}
+      {showAddPasswordModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h3 className={styles.modalTitle}>Add a password</h3>
+            <p className={styles.modalText} style={{ marginBottom: '20px' }}>
+              Set a password for your account so you can use all features.
+            </p>
+            <form onSubmit={handleAddPassword}>
+              <div className={styles.formGroup}>
+                <label className={styles.inputLabel}>NEW PASSWORD</label>
+                <input
+                  type="password"
+                  className={styles.inputField}
+                  value={addPwNew}
+                  onChange={(e) => setAddPwNew(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.inputLabel}>CONFIRM PASSWORD</label>
+                <input
+                  type="password"
+                  className={styles.inputField}
+                  value={addPwConfirm}
+                  onChange={(e) => setAddPwConfirm(e.target.value)}
+                  required
+                />
+              </div>
+
+              {addPwError && <div className={styles.errorText}>{addPwError}</div>}
+
+              <div className={styles.modalActions} style={{ marginTop: '24px' }}>
+                <button
+                  type="button"
+                  className={styles.cancelLinkBtn}
+                  onClick={() => { setShowAddPasswordModal(false); setAddPwError(""); setAddPwNew(""); setAddPwConfirm(""); }}
+                  disabled={addPwLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.confirmEditBtn}
+                  disabled={addPwLoading || !addPwNew || !addPwConfirm}
+                >
+                  {addPwLoading ? "Saving..." : "Set Password"}
                 </button>
               </div>
             </form>

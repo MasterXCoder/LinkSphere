@@ -55,10 +55,10 @@ const login = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Guard: if user signed up via Google, they have no password
+    // Guard: if user signed up via Google and hasn't set a password yet
     if (user.googleId && !user.password) {
       return res.status(400).json({
-        error: "This account uses Google Sign-In. Please use the Google button to log in.",
+        error: "No password set. Please add a password in Settings first.",
       });
     }
 
@@ -76,7 +76,7 @@ const login = async (req, res) => {
     res.status(200).json({
       message: "Login successful",
       token,
-      user: { id: user.id, username: user.username, email: user.email, dob: user.dob },
+      user: { id: user.id, username: user.username, email: user.email, dob: user.dob, hasPassword: !!user.password },
     });
   } catch (err) {
     console.error("login error:", err);
@@ -101,6 +101,7 @@ const getUser = async (req, res) => {
       username: user.username,
       email: user.email,
       dob: user.dob,
+      hasPassword: !!user.password,
     });
   } catch (err) {
     console.error("getUser error:", err);
