@@ -87,5 +87,48 @@
         "type": "text"
       }
     ]
+  },
+  {
+    "id": 1772652225138,
+    "name": "ishpreet_02's server",
+    "inviteCode": "5e1c3187",
+    "ownerId": 1772633511279,
+    "members": [
+      1772633511279
+    ],
+    "channels": [
+      {
+        "id": "ch_1772652225138_1",
+        "name": "general",
+        "type": "text"
+      },
+      {
+        "id": "ch_1772652225138_2",
+        "name": "random",
+        "type": "text"
+      }
+    ]
+  },
+  {
+    "id": 1773294929149,
+    "name": "ishpreet_02's server",
+    "inviteCode": "5530ba81",
+    "ownerId": 1772633511279,
+    "members": [
+      1772633511279
+    ],
+    "color": "#2C2F33",
+    "channels": [
+      {
+        "id": "ch_1773294929150_1",
+        "name": "general",
+        "type": "text"
+      },
+      {
+        "id": "ch_1773294929150_2",
+        "name": "random",
+        "type": "text"
+      }
+    ]
   }
 ]

@@ -284,3 +284,65 @@
     font-size: 1.3rem;
   }
 }
+
+/* ── OAuth Section ── */
+.oauthSection {
+  margin-top: 1.2rem;
+}
+
+.oauthDivider {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
+}
+
+.oauthDivider::before,
+.oauthDivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.oauthDivider span {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.googleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #ffffff;
+  color: #3c4043;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.googleBtn:hover {
+  background: #f1f3f4;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.googleBtn:active {
+  transform: translateY(0);
+  background: #e8eaed;
+}
+
+.googleIcon {
+  flex-shrink: 0;
+}

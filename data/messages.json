@@ -115,6 +115,17 @@
     "authorName": "mohit1268",
     "content": "dfdwsf",
     "type": "user",
+<<<<<<< HEAD
+    "timestamp": "2026-03-04T19:16:35.032Z"
+  },
+  {
+    "id": 1773294929153,
+    "serverId": 1773294929149,
+    "channelId": "ch_1773294929150_1",
+    "type": "system",
+    "content": "ishpreet_02 created the server. Welcome!",
+    "timestamp": "2026-03-12T05:55:29.153Z"
+=======
     "timestamp": "2026-03-05T13:21:08.819Z"
   },
   {
@@ -214,5 +225,6 @@
     "content": "no i will be where u will be",
     "type": "user",
     "timestamp": "2026-04-11T13:19:28.532Z"
+>>>>>>> 67f5af05bfba9801583882f41c93ae476ef54d9e
   }
 ]

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styles from './UserSettings.module.css';
@@ -8,6 +8,29 @@ export default function UserSettings({ onClose }) {
   const auth = useAuth();
   const username = auth.user?.username || "User";
   const email = auth.user?.email || "user@example.com";
+  const hasPassword = auth.user?.hasPassword !== false;
+
+  // Fetch fresh user data on mount to sync hasPassword from the database
+  useEffect(() => {
+    const syncUser = async () => {
+      try {
+        const userId = auth.user?.id;
+        if (!userId || !auth.token) return;
+        const res = await fetch(`http://localhost:8000/api/users/${userId}`, {
+          headers: { "Authorization": `Bearer ${auth.token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.hasPassword !== undefined) {
+            auth.updateUser({ hasPassword: data.hasPassword });
+          }
+        }
+      } catch (err) {
+        // silently ignore — worst case they see stale data
+      }
+    };
+    syncUser();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mask email for display
   const [showEmail, setShowEmail] = useState(false);
@@ -36,6 +59,12 @@ export default function UserSettings({ onClose }) {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState("");
 
+  // Add Password state (for Google users without a password)
+  const [showAddPasswordModal, setShowAddPasswordModal] = useState(false);
+  const [addPwNew, setAddPwNew] = useState("");
+  const [addPwConfirm, setAddPwConfirm] = useState("");
+  const [addPwLoading, setAddPwLoading] = useState(false);
+  const [addPwError, setAddPwError] = useState("");
   const [avatarUploadLoading, setAvatarUploadLoading] = useState(false);
   const avatarInputRef = useRef(null);
 
@@ -79,7 +108,8 @@ export default function UserSettings({ onClose }) {
       });
 
       if (updateRes.ok) {
-        auth.updateUser({ avatarUrl: newAvatarUrl });
+        const updateData = await updateRes.json();
+        auth.updateUser({ avatarUrl: newAvatarUrl, ...(updateData.user?.hasPassword !== undefined ? { hasPassword: updateData.user.hasPassword } : {}) });
         setSuccessToast("Avatar updated successfully!");
       } else {
         setEditError("Failed to update avatar.");
@@ -230,6 +260,53 @@ export default function UserSettings({ onClose }) {
     }
   };
 
+  // ── Add Password (for Google OAuth users) ───────────────────────────────────
+  const handleAddPassword = async (e) => {
+    e.preventDefault();
+    setAddPwError("");
+
+    if (addPwNew !== addPwConfirm) {
+      setAddPwError("Passwords do not match.");
+      return;
+    }
+    if (addPwNew.length < 6) {
+      setAddPwError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setAddPwLoading(true);
+
+    try {
+      const userId = auth.user?.id;
+      const res = await fetch(`http://localhost:8000/api/users/${userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${auth.token}`
+        },
+        body: JSON.stringify({ password: addPwNew })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        auth.updateUser({ hasPassword: data.user?.hasPassword ?? true });
+        setShowAddPasswordModal(false);
+        setAddPwNew("");
+        setAddPwConfirm("");
+        setSuccessToast("Password added successfully!");
+        setTimeout(() => setSuccessToast(""), 3000);
+      } else {
+        const json = await res.json();
+        setAddPwError(json.error || "Failed to set password.");
+      }
+    } catch (err) {
+      console.error(err);
+      setAddPwError("Could not connect to server.");
+    } finally {
+      setAddPwLoading(false);
+    }
+  };
+
   const handleDeleteAccount = async (e) => {
     e.preventDefault();
     setIsDeleting(true);
@@ -367,15 +444,15 @@ export default function UserSettings({ onClose }) {
             <div className={styles.cardBanner}></div>
 
             <div className={styles.cardHeader}>
-              <div 
-                className={styles.cardAvatarWrapper} 
-                style={{ 
-                  background: '#5865f2', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  color: '#fff', 
-                  fontSize: '1.2rem', 
+              <div
+                className={styles.cardAvatarWrapper}
+                style={{
+                  background: '#5865f2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: '1.2rem',
                   fontWeight: 700,
                   position: 'relative',
                   cursor: 'pointer',
@@ -388,7 +465,7 @@ export default function UserSettings({ onClose }) {
                 title="Change Avatar"
               >
                 {!auth.user?.avatarUrl && currentUsername.charAt(0).toUpperCase()}
-                {avatarUploadLoading && <div style={{position: 'absolute', background: 'rgba(0,0,0,0.5)', width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize: '12px'}}>...</div>}
+                {avatarUploadLoading && <div style={{ position: 'absolute', background: 'rgba(0,0,0,0.5)', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>...</div>}
                 <input type="file" ref={avatarInputRef} onChange={handleAvatarSelect} style={{ display: "none" }} accept="image/*" />
               </div>
 
@@ -442,7 +519,11 @@ export default function UserSettings({ onClose }) {
           {/* Password and Authentication */}
           <div className={styles.sectionContainer}>
             <h2 className={styles.sectionTitle}>Password and Authentication</h2>
-            <button className={styles.primaryBtn} onClick={() => { setShowPasswordModal(true); setPasswordError(""); }}>Change Password</button>
+            {hasPassword ? (
+              <button className={styles.primaryBtn} onClick={() => { setShowPasswordModal(true); setPasswordError(""); }}>Change Password</button>
+            ) : (
+              <button className={styles.primaryBtn} onClick={() => { setShowAddPasswordModal(true); setAddPwError(""); }}>Add Password</button>
+            )}
           </div>
 
           <div className={styles.sectionDivider}></div>
@@ -631,6 +712,62 @@ export default function UserSettings({ onClose }) {
                   disabled={passwordLoading || !passwordCurrent || !passwordNew || !passwordConfirm}
                 >
                   {passwordLoading ? "Saving..." : "Done"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Password Modal (for Google OAuth users) */}
+      {showAddPasswordModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h3 className={styles.modalTitle}>Add a password</h3>
+            <p className={styles.modalText} style={{ marginBottom: '20px' }}>
+              Set a password for your account so you can use all features.
+            </p>
+            <form onSubmit={handleAddPassword}>
+              <div className={styles.formGroup}>
+                <label className={styles.inputLabel}>NEW PASSWORD</label>
+                <input
+                  type="password"
+                  className={styles.inputField}
+                  value={addPwNew}
+                  onChange={(e) => setAddPwNew(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.inputLabel}>CONFIRM PASSWORD</label>
+                <input
+                  type="password"
+                  className={styles.inputField}
+                  value={addPwConfirm}
+                  onChange={(e) => setAddPwConfirm(e.target.value)}
+                  required
+                />
+              </div>
+
+              {addPwError && <div className={styles.errorText}>{addPwError}</div>}
+
+              <div className={styles.modalActions} style={{ marginTop: '24px' }}>
+                <button
+                  type="button"
+                  className={styles.cancelLinkBtn}
+                  onClick={() => { setShowAddPasswordModal(false); setAddPwError(""); setAddPwNew(""); setAddPwConfirm(""); }}
+                  disabled={addPwLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.confirmEditBtn}
+                  disabled={addPwLoading || !addPwNew || !addPwConfirm}
+                >
+                  {addPwLoading ? "Saving..." : "Set Password"}
                 </button>
               </div>
             </form>

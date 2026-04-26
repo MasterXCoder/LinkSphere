@@ -55,6 +55,13 @@ const login = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Guard: if user signed up via Google and hasn't set a password yet
+    if (user.googleId && !user.password) {
+      return res.status(400).json({
+        error: "No password set. Please add a password in Settings first.",
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ error: "Invalid credentials" });
@@ -69,7 +76,7 @@ const login = async (req, res) => {
     res.status(200).json({
       message: "Login successful",
       token,
-      user: { id: user.id, username: user.username, email: user.email, dob: user.dob, avatarUrl: user.avatarUrl },
+      user: { id: user.id, username: user.username, email: user.email, dob: user.dob, hasPassword: !!user.password, avatarUrl: user.avatarUrl },
     });
   } catch (err) {
     console.error("login error:", err);
@@ -94,6 +101,7 @@ const getUser = async (req, res) => {
       username: user.username,
       email: user.email,
       dob: user.dob,
+      hasPassword: !!user.password,
       avatarUrl: user.avatarUrl,
     });
   } catch (err) {
@@ -133,7 +141,7 @@ const updateUser = async (req, res) => {
     const updated = await users.findOne({ id });
     res.status(200).json({
       message: "User updated successfully",
-      user: { id: updated.id, username: updated.username, email: updated.email, dob: updated.dob, avatarUrl: updated.avatarUrl },
+      user: { id: updated.id, username: updated.username, email: updated.email, dob: updated.dob, hasPassword: !!updated.password, avatarUrl: updated.avatarUrl },
     });
   } catch (err) {
     console.error("updateUser error:", err);
