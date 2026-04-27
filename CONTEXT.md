@@ -23,6 +23,9 @@ A javascript-based project composed of the following subsystems:
 **`client/src/pages/UserSettings.jsx`**
 - `UserSettings()`
 
+**`client/src/components/CreateServerModal.jsx`**
+- `CreateServerModal()`
+
 **`client/src/pages/Signup.jsx`**
 - `Signup()`
 
@@ -35,8 +38,15 @@ A javascript-based project composed of the following subsystems:
 **`client/src/components/AuthForm.jsx`**
 - `AuthForm()`
 
+**`server/utils/ApiError.js`**
+- class `ApiError`
+  - `constructor()`
+
 **`server/controllers/serverController.js`**
 - `generateInviteCode()`
+
+**`server/middleware/validate.js`**
+- `validate()`
 
 **`client/src/components/Navbar.jsx`**
 - `Navbar()`
@@ -44,27 +54,13 @@ A javascript-based project composed of the following subsystems:
 **`server/middleware/authMiddleware.js`**
 - `verifyToken()`
 
-**`server/middleware/validate.js`**
-- `validate()`
+**`client/src/components/Logo.jsx`**
+- `Logo()`
 
 **`client/src/App.jsx`**
 - `GuestRoute()`
 - `InvitePage()`
 - `AppRouter()`
-
-**`client/src/components/CreateServerModal.jsx`**
-- `CreateServerModal()`
-
-**`server/utils/ApiError.js`**
-- class `ApiError`
-  - `constructor()`
-
-**`client/src/components/Logo.jsx`**
-- `Logo()`
-
-**`server/database/db.js`**
-- `connectDB()`
-- `getDB()`
 
 ## IMPORTANT_CALL_PATHS
 
@@ -90,10 +86,6 @@ server()
 
 **Notes:** large file (920 lines)
 
-### `server/controllers/userController.js`
-
-**Purpose:** Implements userController.
-
 ### `client/src/pages/UserSettings.jsx`
 
 **Purpose:** Implements UserSettings.
@@ -103,6 +95,19 @@ server()
 
 **Notes:** large file (787 lines)
 
+### `server/controllers/userController.js`
+
+**Purpose:** Implements userController.
+
+### `client/src/components/CreateServerModal.jsx`
+
+**Purpose:** Implements CreateServerModal.
+
+**Functions:**
+- `const CreateServerModal = ...`
+
+**Notes:** large file (319 lines)
+
 ### `client/src/pages/Signup.jsx`
 
 **Purpose:** Implements Signup.
@@ -110,14 +115,14 @@ server()
 **Functions:**
 - `function Signup()`
 
+## SUPPORTING_MODULES
+
 ### `client/src/pages/Login.jsx`
 
-**Purpose:** Implements Login.
+```javascript
+function Login()
 
-**Functions:**
-- `function Login()`
-
-## SUPPORTING_MODULES
+```
 
 ### `client/src/pages/Landing.jsx`
 
@@ -133,6 +138,13 @@ function AuthForm(
 
 ```
 
+### `server/utils/ApiError.js`
+
+```javascript
+class ApiError
+
+```
+
 ### `client/src/pages/AppPage.module.css`
 
 *1595 lines, 0 imports*
@@ -144,9 +156,12 @@ const generateInviteCode = ...
 
 ```
 
-### `server/app.js`
+### `server/middleware/validate.js`
 
-*61 lines, 0 imports*
+```javascript
+const validate = ...
+
+```
 
 ### `client/src/components/Navbar.jsx`
 
@@ -155,6 +170,10 @@ function Navbar()
 
 ```
 
+### `server/app.js`
+
+*61 lines, 0 imports*
+
 ### `server/middleware/authMiddleware.js`
 
 ```javascript
@@ -162,10 +181,10 @@ const verifyToken = ...
 
 ```
 
-### `server/middleware/validate.js`
+### `client/src/components/Logo.jsx`
 
 ```javascript
-const validate = ...
+function Logo({ size = 24, light = false })
 
 ```
 
@@ -184,43 +203,17 @@ function AppRouter()
 
 *929 lines, 0 imports*
 
-### `client/src/components/CreateServerModal.jsx`
-
-```javascript
-const CreateServerModal = ...
-
-```
-
 ### `server/server.js`
 
 *78 lines, 0 imports*
 
-### `server/utils/ApiError.js`
+### `README.md`
 
-```javascript
-class ApiError
-
-```
-
-### `client/src/components/Logo.jsx`
-
-```javascript
-function Logo({ size = 24, light = false })
-
-```
+*204 lines, 0 imports*
 
 ### `server/routes/userRoutes.js`
 
 *21 lines, 0 imports*
-
-### `server/database/db.js`
-
-```javascript
-async function connectDB()
-
-function getDB()
-
-```
 
 ## DEPENDENCY_GRAPH
 
@@ -228,135 +221,138 @@ function getDB()
 graph LR
     f0["client/src/context/AuthContext.jsx"]
     f1["client/src/pages/AppPage.jsx"]
-    f2["server/controllers/userController.js"]
-    f3["client/src/pages/UserSettings.jsx"]
-    f4["client/src/pages/Signup.jsx"]
-    f5["package.json"]
-    f6["package-lock.json"]
-    f7["client/src/pages/Login.jsx"]
-    f8["client/src/pages/Landing.jsx"]
-    f9["client/src/components/AuthForm.jsx"]
-    f10["client/src/pages/AppPage.module.css"]
-    f11["server/controllers/serverController.js"]
-    f12["server/app.js"]
-    f13["client/src/components/Navbar.jsx"]
-    f14["server/middleware/authMiddleware.js"]
-    f15["server/middleware/validate.js"]
-    f16["client/src/App.jsx"]
-    f17["client/src/pages/Landing.module.css"]
-    f18["client/src/components/CreateServerModal.jsx"]
-    f19["server/server.js"]
-    f20["server/utils/ApiError.js"]
-    f21["client/src/components/Logo.jsx"]
+    f2["client/src/pages/UserSettings.jsx"]
+    f3["server/controllers/userController.js"]
+    f4["client/src/components/CreateServerModal.jsx"]
+    f5["client/src/pages/Signup.jsx"]
+    f6["package.json"]
+    f7["package-lock.json"]
+    f8["client/src/pages/Login.jsx"]
+    f9["client/src/pages/Landing.jsx"]
+    f10["client/src/components/AuthForm.jsx"]
+    f11["server/utils/ApiError.js"]
+    f12["client/src/pages/AppPage.module.css"]
+    f13["server/controllers/serverController.js"]
+    f14["server/middleware/validate.js"]
+    f15["client/src/components/Navbar.jsx"]
+    f16["server/app.js"]
+    f17["server/middleware/authMiddleware.js"]
+    f18["client/src/components/Logo.jsx"]
+    f19["client/src/App.jsx"]
+    f20["client/src/pages/Landing.module.css"]
+    f21["server/server.js"]
     f22["server/routes/userRoutes.js"]
     f23["server/database/db.js"]
-    f24["client/src/components/AuthForm.module.css"]
-    f1 --> f3
-    f1 --> f21
+    f24["client/src/components/ProtectedRoute.jsx"]
+    f1 --> f2
     f1 --> f18
+    f1 --> f4
     f1 --> f0
-    f2 --> f4
-    f2 --> f7
-    f2 --> f20
-    f3 --> f0
-    f4 --> f9
-    f6 --> f15
-    f7 --> f9
-    f7 --> f0
-    f8 --> f21
-    f8 --> f13
-    f9 --> f21
-    f13 --> f21
-    f13 --> f0
-    f15 --> f20
-    f16 --> f1
-    f16 --> f4
-    f16 --> f7
-    f16 --> f8
-    f16 --> f0
-    f19 --> f23
+    f2 --> f0
+    f3 --> f5
+    f3 --> f8
+    f3 --> f11
+    f5 --> f10
+    f7 --> f14
+    f8 --> f10
+    f8 --> f0
+    f9 --> f18
+    f9 --> f15
+    f10 --> f18
+    f13 --> f11
+    f14 --> f11
+    f15 --> f18
+    f15 --> f0
+    f16 --> f11
+    f19 --> f24
+    f19 --> f1
+    f19 --> f5
+    f19 --> f8
+    f19 --> f9
+    f19 --> f0
+    f21 --> f23
+    f22 --> f17
     f22 --> f14
-    f22 --> f15
+    f24 --> f0
 ```
 
 ## RANKED_FILES
 
 | File | Score | Tier | Tokens |
 |------|-------|------|--------|
-| `client/src/context/AuthContext.jsx` | 0.560 | structured summary | 36 |
-| `client/src/pages/AppPage.jsx` | 0.552 | structured summary | 44 |
+| `client/src/context/AuthContext.jsx` | 0.562 | structured summary | 36 |
+| `client/src/pages/AppPage.jsx` | 0.550 | structured summary | 44 |
+| `client/src/pages/UserSettings.jsx` | 0.513 | structured summary | 38 |
 | `server/controllers/userController.js` | 0.490 | structured summary | 15 |
-| `client/src/pages/UserSettings.jsx` | 0.465 | structured summary | 38 |
-| `client/src/pages/Signup.jsx` | 0.420 | structured summary | 25 |
-| `package.json` | 0.415 | one-liner | 10 |
-| `package-lock.json` | 0.413 | one-liner | 12 |
-| `client/src/pages/Login.jsx` | 0.408 | structured summary | 24 |
-| `client/src/pages/Landing.jsx` | 0.405 | signatures | 17 |
-| `client/src/components/AuthForm.jsx` | 0.395 | signatures | 18 |
-| `client/src/pages/AppPage.module.css` | 0.354 | signatures | 19 |
-| `server/controllers/serverController.js` | 0.342 | signatures | 19 |
-| `server/app.js` | 0.330 | signatures | 14 |
-| `client/src/components/Navbar.jsx` | 0.326 | signatures | 17 |
-| `server/middleware/authMiddleware.js` | 0.314 | signatures | 19 |
-| `server/middleware/validate.js` | 0.290 | signatures | 18 |
-| `client/src/App.jsx` | 0.282 | signatures | 26 |
-| `client/src/pages/Landing.module.css` | 0.281 | signatures | 18 |
-| `client/src/components/CreateServerModal.jsx` | 0.271 | signatures | 21 |
-| `server/server.js` | 0.248 | signatures | 14 |
-| `server/utils/ApiError.js` | 0.240 | signatures | 18 |
-| `client/src/components/Logo.jsx` | 0.236 | signatures | 26 |
+| `client/src/components/CreateServerModal.jsx` | 0.419 | structured summary | 40 |
+| `client/src/pages/Signup.jsx` | 0.418 | structured summary | 25 |
+| `package.json` | 0.413 | one-liner | 10 |
+| `package-lock.json` | 0.412 | one-liner | 12 |
+| `client/src/pages/Login.jsx` | 0.406 | signatures | 16 |
+| `client/src/pages/Landing.jsx` | 0.403 | signatures | 17 |
+| `client/src/components/AuthForm.jsx` | 0.394 | signatures | 18 |
+| `server/utils/ApiError.js` | 0.390 | signatures | 18 |
+| `client/src/pages/AppPage.module.css` | 0.352 | signatures | 19 |
+| `server/controllers/serverController.js` | 0.340 | signatures | 19 |
+| `server/middleware/validate.js` | 0.340 | signatures | 18 |
+| `client/src/components/Navbar.jsx` | 0.329 | signatures | 17 |
+| `server/app.js` | 0.328 | signatures | 14 |
+| `server/middleware/authMiddleware.js` | 0.318 | signatures | 19 |
+| `client/src/components/Logo.jsx` | 0.286 | signatures | 26 |
+| `client/src/App.jsx` | 0.280 | signatures | 26 |
+| `client/src/pages/Landing.module.css` | 0.279 | signatures | 18 |
+| `server/server.js` | 0.246 | signatures | 14 |
+| `README.md` | 0.245 | signatures | 13 |
 | `server/routes/userRoutes.js` | 0.235 | signatures | 16 |
-| `server/database/db.js` | 0.222 | signatures | 21 |
-| `client/src/components/AuthForm.module.css` | 0.209 | one-liner | 15 |
-| `client/package-lock.json` | 0.207 | one-liner | 13 |
-| `client/package.json` | 0.207 | one-liner | 11 |
-| `client/src/index.css` | 0.201 | one-liner | 12 |
+| `server/database/db.js` | 0.222 | one-liner | 16 |
+| `client/src/components/ProtectedRoute.jsx` | 0.220 | one-liner | 23 |
+| `client/src/components/AuthForm.module.css` | 0.211 | one-liner | 15 |
+| `client/src/components/EditServerModal.jsx` | 0.210 | one-liner | 23 |
+| `client/package-lock.json` | 0.206 | one-liner | 13 |
+| `client/package.json` | 0.206 | one-liner | 11 |
+| `client/src/index.css` | 0.205 | one-liner | 12 |
+| `client/src/pages/OAuthCallback.jsx` | 0.202 | one-liner | 23 |
+| `client/src/components/JoinServerModal.jsx` | 0.197 | one-liner | 24 |
 | `server/utils/cloudinaryHelper.js` | 0.190 | one-liner | 18 |
-| `README.md` | 0.177 | one-liner | 10 |
-| `client/vite.config.js` | 0.173 | one-liner | 17 |
-| `client/src/components/ProtectedRoute.jsx` | 0.167 | one-liner | 23 |
-| `client/src/components/EditServerModal.jsx` | 0.162 | one-liner | 23 |
+| `client/vite.config.js` | 0.171 | one-liner | 17 |
 | `client/src/components/Navbar.module.css` | 0.158 | one-liner | 15 |
-| `server/routes/serverRoutes.js` | 0.151 | one-liner | 13 |
-| `client/src/pages/OAuthCallback.jsx` | 0.150 | one-liner | 23 |
-| `client/src/components/JoinServerModal.jsx` | 0.148 | one-liner | 24 |
-| `server/routes/authRoutes.js` | 0.124 | one-liner | 13 |
-| `server/validations/serverSchemas.js` | 0.123 | one-liner | 16 |
+| `server/routes/serverRoutes.js` | 0.150 | one-liner | 13 |
+| `server/middleware/errorMiddleware.js` | 0.140 | one-liner | 18 |
+| `server/routes/authRoutes.js` | 0.126 | one-liner | 13 |
 | `server/config/passport.js` | 0.122 | one-liner | 13 |
 
 ## PERIPHERY
 
 - `package.json` — 40 lines
 - `package-lock.json` — 2600 lines
+- `server/database/db.js` — 2 functions, 29 lines
+- `client/src/components/ProtectedRoute.jsx` — 1 function, 2 imports, 18 lines
 - `client/src/components/AuthForm.module.css` — 349 lines
+- `client/src/components/EditServerModal.jsx` — 1 function, 2 imports, 122 lines
 - `client/package-lock.json` — 3568 lines
 - `client/package.json` — 32 lines
 - `client/src/index.css` — 51 lines
-- `server/utils/cloudinaryHelper.js` — 2 functions, 47 lines
-- `README.md` — 132 lines
-- `client/vite.config.js` — 2 imports, 19 lines
-- `client/src/components/ProtectedRoute.jsx` — 1 function, 2 imports, 18 lines
-- `client/src/components/EditServerModal.jsx` — 1 function, 2 imports, 122 lines
-- `client/src/components/Navbar.module.css` — 107 lines
-- `server/routes/serverRoutes.js` — 54 lines
 - `client/src/pages/OAuthCallback.jsx` — 1 function, 3 imports, 67 lines
 - `client/src/components/JoinServerModal.jsx` — 1 function, 2 imports, 82 lines
+- `server/utils/cloudinaryHelper.js` — 2 functions, 47 lines
+- `client/vite.config.js` — 2 imports, 19 lines
+- `client/src/components/Navbar.module.css` — 107 lines
+- `server/routes/serverRoutes.js` — 54 lines
+- `server/middleware/errorMiddleware.js` — 2 functions, 40 lines
 - `server/routes/authRoutes.js` — 64 lines
-- `server/validations/serverSchemas.js` — 48 lines
 - `server/config/passport.js` — 70 lines
+- `server/validations/serverSchemas.js` — 48 lines
 - `client/src/pages/UserSettings.module.css` — 709 lines
 - `nodemon.json` — 8 lines
 - `client/src/main.jsx` — 5 imports, 14 lines
 - `server/models/Message.js` — 43 lines
 - `server/models/Server.js` — 52 lines
-- `server/validations/userSchemas.js` — 59 lines
-- `server/middleware/errorMiddleware.js` — 2 functions, 40 lines
-- `server/utils/catchAsync.js` — 1 function, 6 lines
 - `server/routes/uploadRoutes.js` — 39 lines
+- `server/validations/userSchemas.js` — 59 lines
+- `server/utils/catchAsync.js` — 1 function, 6 lines
 - `server/models/User.js` — 39 lines
 - `client/index.html` — 14 lines
 - `client/src/components/CreateServerModal.module.css` — 485 lines
 - `client/public/favicon.svg` — 6 lines
 - `client/README.md` — 17 lines
 - `client/eslint.config.js` — 5 imports, 30 lines
-

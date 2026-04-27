@@ -68,7 +68,7 @@ const getServer = catchAsync(async (req, res) => {
   const memberDocs = await User.find({ id: { $in: server.members } });
   const membersWithNames = server.members.map((memberId) => {
     const user = memberDocs.find((u) => u.id === memberId);
-    return { id: memberId, username: user ? user.username : "Unknown", avatarUrl: user?.avatarUrl || null };
+    return { id: memberId, username: user ? user.username : "Unknown", avatarUrl: user?.avatarUrl || null, socketId: user?.socketId || null };
   });
 
   res.json({ ...server.toObject(), membersData: membersWithNames });

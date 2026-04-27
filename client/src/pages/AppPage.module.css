@@ -1592,3 +1592,29 @@
   animation: spin 1s linear infinite;
 }
 
+.memberActions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.callBtn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 4px;
+  padding: 4px;
+  cursor: pointer;
+  color: #b9bbbe;
+  transition: all 0.2s;
+}
+
+.callBtn:hover:not(:disabled) {
+  background: #23a559;
+  color: #fff;
+}
+
+.callBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+

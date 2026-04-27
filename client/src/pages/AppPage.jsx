@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import CreateServerModal from '../components/CreateServerModal';
 import EditServerModal from '../components/EditServerModal';
 import Logo from '../components/Logo';
+import CallModal from '../components/CallModal';
 import styles from "./AppPage.module.css";
 import UserSettings from "./UserSettings";
 
@@ -37,6 +38,8 @@ export default function AppPage() {
   const pollRef = useRef(null);
   const userPopupRef = useRef(null);
   const mainAreaRef = useRef(null); // Ref for tracking cursor position
+  const targetUserRef = useRef(null);
+  const serverDataRef = useRef(null);
 
   const [socket, setSocket] = useState(null);
 
@@ -44,9 +47,66 @@ export default function AppPage() {
   useEffect(() => {
     if (token) {
       const newSocket = io("", {
-        auth: { token },
+        auth: { token, username },
       });
+
       setSocket(newSocket);
+
+      // Call events
+      newSocket.on("call-incoming", ({ signal, from, callType: incomingCallType, callerName }) => {
+        const members = serverDataRef.current?.membersData || [];
+        const caller = members.find(m => m.socketId === from);
+        setTargetUser({ 
+          id: caller?.id,
+          socketId: from, 
+          username: caller?.username || callerName || 'Unknown' 
+        });
+        setIncomingCall(signal);
+        setCallType(incomingCallType || 'audio');
+        setIsCallModalOpen(true);
+      });
+
+      newSocket.on("call-rejected", () => {
+        setIsCallModalOpen(false);
+        setTargetUser(null);
+        setIncomingCall(null);
+      });
+
+      newSocket.on("call-ended", () => {
+        setIsCallModalOpen(false);
+        setTargetUser(null);
+        setIncomingCall(null);
+      });
+
+      newSocket.on("user-left-call", ({ userId: leftUserId }) => {
+        if (targetUserRef.current?.id === leftUserId) {
+          setIsCallModalOpen(false);
+          setTargetUser(null);
+          setIncomingCall(null);
+        }
+      });
+
+      newSocket.on("user-online", ({ userId, socketId }) => {
+        setOnlineUsers(prev => ({ ...prev, [userId]: socketId }));
+      });
+
+      // Bulk snapshot of all currently-online users sent on connect
+      newSocket.on("online-users-list", (onlineList) => {
+        const onlineMap = {};
+        onlineList.forEach(({ userId: uid, socketId: sid }) => {
+          onlineMap[uid] = sid;
+        });
+        setOnlineUsers(onlineMap);
+      });
+
+      newSocket.on("user-offline", ({ userId }) => {
+        setOnlineUsers(prev => {
+          const next = { ...prev };
+          delete next[userId];
+          return next;
+        });
+      });
+
       return () => newSocket.close();
     }
   }, [token]);
@@ -55,6 +115,12 @@ export default function AppPage() {
   const [servers, setServers] = useState([]);
   const [activeServer, setActiveServer] = useState("home");
   const [serverData, setServerData] = useState(null); // full server details + members
+  const [onlineUsers, setOnlineUsers] = useState({}); // userId -> socketId
+  
+  // Sync refs
+  useEffect(() => {
+    serverDataRef.current = serverData;
+  }, [serverData]);
   const [activeChannel, setActiveChannel] = useState(null);
   const [messages, setMessages] = useState([]);
   const [msgInput, setMsgInput] = useState("");
@@ -78,6 +144,17 @@ export default function AppPage() {
   const [attachmentPreview, setAttachmentPreview] = useState(null);
   const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Call State
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [callType, setCallType] = useState('audio');
+  const [targetUser, setTargetUser] = useState(null);
+  const [incomingCall, setIncomingCall] = useState(null);
+
+  // Sync ref
+  useEffect(() => {
+    targetUserRef.current = targetUser;
+  }, [targetUser]);
 
   // ── Interaction Logic ──
   const handleMouseMove = (e) => {
@@ -318,6 +395,31 @@ export default function AppPage() {
       setIsSending(false);
     }
   };
+
+  // ── Voice/Video Call Functions ──
+  const startCall = (targetMember, type) => {
+    if (!targetMember?.socketId) {
+      alert('User is not online');
+      return;
+    }
+    if (targetMember.id === userId) {
+      alert('Cannot call yourself');
+      return;
+    }
+    setTargetUser(targetMember);
+    setCallType(type);
+    setIncomingCall(null);
+    setIsCallModalOpen(true);
+  };
+
+  const handleCallClose = () => {
+    // CallModal handles signaling (end-call emit) internally.
+    // AppPage just resets its own state.
+    setIsCallModalOpen(false);
+    setTargetUser(null);
+    setIncomingCall(null);
+  };
+
 
   const handleAttachmentChange = (e) => {
     const file = e.target.files[0];
@@ -625,6 +727,7 @@ export default function AppPage() {
                 )}
               </div>
             )}
+
             <section className={styles.scrollSection}>
               <div className={styles.categoryHeader}>
                 <span>Text Channels</span>
@@ -855,13 +958,49 @@ export default function AppPage() {
                       }}>
                         {!m.avatarUrl && m.username.charAt(0).toUpperCase()}
                       </div>
-                      <div className={styles.memberDot}></div>
+                      <div 
+                        className={styles.memberDot} 
+                        style={{ background: onlineUsers[m.id] ? '#23a559' : '#80848e' }}
+                      ></div>
                     </div>
                     <span className={styles.memberName}>{m.username}</span>
                     {m.id === serverData?.ownerId && (
                       <span className={styles.ownerBadge}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="#faa61a"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z" /></svg>
                       </span>
+                    )}
+                    {/*call buttons - always show but disabled if offline*/}
+                    {(m.id !== userId) && (
+                      <div className={styles.memberActions}>
+                        <button 
+                          className={styles.callBtn} 
+                          onClick={() => {
+                            if (!onlineUsers[m.id]) {
+                              alert('User is not online');
+                              return;
+                            }
+                            startCall({ ...m, socketId: onlineUsers[m.id] }, 'audio');
+                          }}
+                          title={onlineUsers[m.id] ? "Audio call" : "User offline"}
+                          disabled={!onlineUsers[m.id]}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z"/></svg>
+                        </button>
+                        <button 
+                          className={styles.callBtn} 
+                          onClick={() => {
+                            if (!onlineUsers[m.id]) {
+                              alert('User is not online');
+                              return;
+                            }
+                            startCall({ ...m, socketId: onlineUsers[m.id] }, 'video');
+                          }}
+                          title={onlineUsers[m.id] ? "Video call" : "User offline"}
+                          disabled={!onlineUsers[m.id]}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -872,6 +1011,19 @@ export default function AppPage() {
       </main>
 
       {showSettings && <UserSettings onClose={() => setShowSettings(false)} />}
+
+      {/* CALL MODAL */}
+      {isCallModalOpen && (
+        <CallModal
+          isOpen={isCallModalOpen}
+          onClose={handleCallClose}
+          socket={socket}
+          targetUser={targetUser}
+          callType={callType}
+          isIncoming={!!incomingCall}
+          initialSignal={incomingCall}
+        />
+      )}
 
       {/* SERVER MODAL GATEKEEPER */}
       {isServerModalOpen && (
