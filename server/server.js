@@ -25,7 +25,7 @@ const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: ["http://localhost:5174", "http://127.0.0.1:5174"],
     credentials: true,
   },
 });
@@ -58,7 +58,7 @@ io.on("connection", async (socket) => {
     userSockets.set(userId, new Set());
   }
   userSockets.get(userId).add(socket.id);
-  
+
   // Update user's socketId in database
   await User.findOneAndUpdate({ id: userId }, { socketId: socket.id });
 

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff,
   Monitor, MonitorOff, X, Phone, Loader2
 } from 'lucide-react';
 import styles from './CallModal.module.css';
+import { useAuth } from '../context/AuthContext';
 
 const ICE_SERVERS = {
   iceServers: [
@@ -15,16 +17,23 @@ const ICE_SERVERS = {
 };
 
 export default function CallModal({
-  isOpen, onClose, socket, targetUser, callType, isIncoming, initialSignal,
+  isOpen, onClose, socket, targetUser, callType, isIncoming, initialSignal, isMuted, isDeafened, onToggleMute, onToggleDeafen
 }) {
   // ── UI state ─────────────────────────────────────────────────────────────
   const [callState, setCallState] = useState(isIncoming ? 'ringing' : 'calling');
-  const [isMuted, setIsMuted]                 = useState(false);
   const [isVideoOff, setIsVideoOff]           = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [duration, setDuration]               = useState(0);
   const [hasRemoteVideo, setHasRemoteVideo]   = useState(false); // got remote VIDEO track
   const [hasRemoteAudio, setHasRemoteAudio]   = useState(false); // got remote AUDIO track
+
+  const auth = useAuth();
+
+  // Speaking state
+  const [isLocalSpeaking, setIsLocalSpeaking] = useState(false);
+  const [isRemoteSpeaking, setIsRemoteSpeaking] = useState(false);
+  const [localStreamTrigger, setLocalStreamTrigger] = useState(0);
+  const [remoteStreamTrigger, setRemoteStreamTrigger] = useState(0);
 
   // ── Stable refs — never stale inside any callback ─────────────────────────
   const pcRef              = useRef(null);
@@ -111,6 +120,7 @@ export default function CallModal({
 
     stream.getAudioTracks().forEach(() => setHasRemoteAudio(true));
     stream.getVideoTracks().forEach(() => setHasRemoteVideo(true));
+    setRemoteStreamTrigger(prev => prev + 1);
   }, []);
 
   // ── Core helpers ──────────────────────────────────────────────────────────
@@ -186,7 +196,14 @@ export default function CallModal({
         video: isVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
       });
       localStreamRef.current = stream;
+      
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !isMuted;
+      }
+      
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      setLocalStreamTrigger(prev => prev + 1);
       return stream;
     } catch (err) {
       console.error('getUserMedia failed:', err);
@@ -197,6 +214,7 @@ export default function CallModal({
             audio: { echoCancellation: true, noiseSuppression: true },
           });
           localStreamRef.current = audioOnly;
+          setLocalStreamTrigger(prev => prev + 1);
           return audioOnly;
         } catch (e2) { console.error('Audio fallback failed:', e2); }
       }
@@ -305,13 +323,96 @@ export default function CallModal({
     };
   }, []); // run once
 
-  // ── Controls ──────────────────────────────────────────────────────────────
-  const toggleMute = () => {
-    const track = localStreamRef.current?.getAudioTracks()[0];
+  // ── Audio Analysers for Speaking Indicators ───────────────────────────────
+  useEffect(() => {
+    if (!localStreamRef.current || isMuted) {
+      setIsLocalSpeaking(false);
+      return;
+    }
+    const track = localStreamRef.current.getAudioTracks()[0];
     if (!track) return;
-    track.enabled = !track.enabled;
-    setIsMuted(!track.enabled);
-  };
+    
+    let audioCtx;
+    let animationFrame;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      const source = audioCtx.createMediaStreamSource(new MediaStream([track]));
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const checkLevel = () => {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        setIsLocalSpeaking(avg > 10);
+        animationFrame = requestAnimationFrame(checkLevel);
+      };
+      checkLevel();
+    } catch (err) {
+      console.error("Local audio analyser error:", err);
+    }
+
+    return () => {
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      if (audioCtx) audioCtx.close().catch(() => {});
+    };
+  }, [localStreamTrigger, isMuted]);
+
+  useEffect(() => {
+    if (!remoteStreamRef.current || isDeafened) {
+      setIsRemoteSpeaking(false);
+      return;
+    }
+    const track = remoteStreamRef.current.getAudioTracks()[0];
+    if (!track) return;
+
+    let audioCtx;
+    let animationFrame;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      const source = audioCtx.createMediaStreamSource(new MediaStream([track]));
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const checkLevel = () => {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        setIsRemoteSpeaking(avg > 10);
+        animationFrame = requestAnimationFrame(checkLevel);
+      };
+      checkLevel();
+    } catch (err) {
+      console.error("Remote audio analyser error:", err);
+    }
+
+    return () => {
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      if (audioCtx) audioCtx.close().catch(() => {});
+    };
+  }, [remoteStreamTrigger, isDeafened]);
+
+  // ── Controls ──────────────────────────────────────────────────────────────
+  // React to global mute state
+  useEffect(() => {
+    const track = localStreamRef.current?.getAudioTracks()[0];
+    if (track) {
+      track.enabled = !isMuted;
+    }
+  }, [isMuted]);
+
+  // React to global deafen state
+  useEffect(() => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.muted = isDeafened;
+    }
+  }, [isDeafened]);
 
   const toggleVideo = () => {
     const track = localStreamRef.current?.getVideoTracks()[0];
@@ -392,133 +493,181 @@ export default function CallModal({
 
   const isVideoCall = callType === 'video';
 
-  return (
-    <div className={styles.overlay}>
-      <div className={styles.modal}>
+  const voicePortalTarget = document.getElementById('voice-controls-portal');
+  const videoPortalTarget = document.getElementById('main-video-portal');
 
-        {/* ── Remote audio element — always in DOM, always active ── */}
-        {/* Use position/size hide NOT display:none — display:none can suppress audio autoplay */}
-        <audio
-          ref={setRemoteAudioEl}
-          playsInline
-          style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
-        />
+  // Always render the hidden remote audio element
+  const audioEl = (
+    <audio
+      ref={setRemoteAudioEl}
+      playsInline
+      style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+    />
+  );
 
-        {/* ── Header ──────────────────────────────────────── */}
-        <div className={styles.header}>
-          <div className={styles.callMeta}>
-            <div className={styles.avatar}>
-              {targetUser?.username?.charAt(0).toUpperCase() || '?'}
-            </div>
-            <div>
-              <div className={styles.callerName}>{targetUser?.username || 'Unknown'}</div>
-              <div className={styles.callStatus}>
-                {callState === 'calling'   && 'Calling…'}
-                {callState === 'ringing'   && `Incoming ${callType} call`}
-                {callState === 'connected' && fmt(duration)}
-                {callState === 'rejected'  && 'Call rejected'}
-                {callState === 'ended'     && 'Call ended'}
-                {callState === 'error'     && 'Connection failed'}
-              </div>
+  // If ringing, show the incoming overlay
+  if (callState === 'ringing') {
+    return (
+      <div className={styles.incomingOverlay}>
+        {audioEl}
+        <div className={styles.incomingModal}>
+          <div className={styles.incomingAvatar} style={targetUser?.avatarUrl ? { backgroundImage: `url(${targetUser.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
+            {!targetUser?.avatarUrl && (targetUser?.username?.charAt(0).toUpperCase() || '?')}
+          </div>
+          <div className={styles.incomingInfo}>
+            <div className={styles.incomingName}>{targetUser?.username || 'Unknown'}</div>
+            <div className={styles.incomingType}>Incoming {callType} call</div>
+          </div>
+          <div className={styles.incomingActions}>
+            <button className={`${styles.actionBtn} ${styles.accept}`} onClick={() => acceptCall(initialSignal)} title="Accept">
+              <Phone size={24} />
+            </button>
+            <button className={`${styles.actionBtn} ${styles.reject}`} onClick={handleReject} title="Decline">
+              <PhoneOff size={24} />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Voice Connected Sidebar Panel
+  const voiceConnectedPanel = voicePortalTarget ? createPortal(
+    <div className={styles.voiceConnectedPanel}>
+      <div className={styles.voiceConnectedHeader}>
+        <div className={styles.voiceConnectedHeaderLeft} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className={styles.voiceConnectedSignalBox}>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+              <path d="M11 2.008C11 1.452 11.448 1 12 1c5.523 0 10 4.477 10 10s-4.477 10-10 10c-.552 0-1-.448-1-1v-1.008a8.001 8.001 0 0 1-7-7.992V11c0-.552.448-1 1-1h1.008a6.001 6.001 0 0 0 5.992 5.992V17c0 .552.448 1 1 1a4 4 0 0 0 4-4c0-.552-.448-1-1-1h-1.008a2.001 2.001 0 0 1-1.992-1.992V11c0-.552.448-1 1-1A4 4 0 0 0 11 14v1.008zM12 4a6 6 0 0 1 6 6h-2a4 4 0 0 0-4-4V4zM4.27 3.518A9.965 9.965 0 0 0 2 11v2a9.965 9.965 0 0 0 2.27 6.482l1.414-1.414A7.971 7.971 0 0 1 4 13v-2c0-1.84.62-3.535 1.684-4.896L4.27 3.518z" />
+            </svg>
+          </div>
+          <div className={styles.voiceConnectedText}>
+            <div className={styles.voiceConnectedStatus}>Voice Connected</div>
+            <div className={styles.voiceConnectedChannel}>
+              General / {targetUser?.username || 'Call'}
             </div>
           </div>
-          <button className={styles.closeBtn} onClick={handleEndCall} title="Close">
-            <X size={18} />
+        </div>
+        <div className={styles.voiceConnectedHeaderRight}>
+          <button className={styles.disconnectBtn} title="Noise Suppression">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 10v3"></path><path d="M6 6v11"></path><path d="M10 3v18"></path><path d="M14 8v7"></path><path d="M18 5v13"></path><path d="M22 10v3"></path></svg>
+          </button>
+          <button className={styles.disconnectBtn} onClick={handleEndCall} title="Disconnect">
+            <PhoneOff size={20} />
+          </button>
+        </div>
+      </div>
+
+      <div className={styles.voiceConnectedActions}>
+        <button className={`${styles.panelBtn} ${isVideoOff ? styles.active : ''}`} onClick={toggleVideo} title="Camera">
+          {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
+        </button>
+        <button className={`${styles.panelBtn} ${isScreenSharing ? styles.active : ''}`} onClick={toggleScreenShare} title="Share Your Screen">
+          {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
+        </button>
+        <button className={`${styles.panelBtn} ${isMuted ? styles.active : ''}`} onClick={onToggleMute} title={isMuted ? "Unmute" : "Mute"}>
+          {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+        </button>
+        <button className={`${styles.panelBtn} ${isDeafened ? styles.active : ''}`} onClick={onToggleDeafen} title={isDeafened ? "Undeafen" : "Deafen"}>
+          {isDeafened ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.9 13.5a10.02 10.02 0 0 0-2.43-8.83M5.1 10.5A10 10 0 0 0 12 22"></path><path d="M9 18a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3"></path><path d="M15 12a3 3 0 0 1 3 3v2.85"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+          )}
+        </button>
+      </div>
+    </div>,
+    voicePortalTarget
+  ) : null;
+
+  // Video/Voice Grid in Main Area
+  const videoPortal = videoPortalTarget ? createPortal(
+    <div className={styles.mainVideoPortal}>
+      <div className={styles.callGrid}>
+        {/* Remote Tile */}
+        <div className={`${styles.gridTile} ${isRemoteSpeaking && hasRemoteVideo ? styles.isSpeakingVideo : ''}`}>
+          <video
+            ref={setRemoteVideoEl}
+            autoPlay
+            playsInline
+            className={`${styles.remoteVideo} ${!hasRemoteVideo ? styles.hidden : ''}`}
+          />
+          {!hasRemoteVideo && (
+            <>
+              <div className={`${styles.tileAvatar} ${isRemoteSpeaking ? styles.isSpeaking : ''}`} style={targetUser?.avatarUrl ? { backgroundImage: `url(${targetUser.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
+                {!targetUser?.avatarUrl && (targetUser?.username?.charAt(0).toUpperCase() || '?')}
+              </div>
+              {callState === 'connected' && (
+                <div className={styles.waitingOverlayAudio}>
+                  <span>Voice Connected</span>
+                </div>
+              )}
+            </>
+          )}
+          <div className={styles.tileName}>{targetUser?.username || 'Remote User'}</div>
+        </div>
+
+        {/* Local Tile */}
+        {(() => {
+          const hasLocalVideoTrack = localStreamRef.current?.getVideoTracks().length > 0;
+          const showLocalAvatar = !isScreenSharing && (!hasLocalVideoTrack || isVideoOff);
+          return (
+            <div className={`${styles.gridTile} ${isLocalSpeaking && !showLocalAvatar ? styles.isSpeakingVideo : ''}`}>
+              <video
+                ref={setLocalVideoEl}
+                autoPlay
+                playsInline
+                muted
+                className={`${styles.localVideo} ${showLocalAvatar ? styles.hidden : ''}`}
+              />
+              {showLocalAvatar && (
+                <div className={`${styles.tileAvatar} ${isLocalSpeaking ? styles.isSpeaking : ''}`} style={auth?.user?.avatarUrl ? { backgroundImage: `url(${auth.user.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : { background: 'linear-gradient(135deg, #10b981, #3b82f6)' }}>
+                  {!auth?.user?.avatarUrl && "You"}
+                </div>
+              )}
+              <div className={styles.tileName}>You</div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Bottom Controls Area */}
+      <div className={styles.bottomControls}>
+        <div className={styles.controlGroup}>
+          <button className={`${styles.controlBtn} ${isMuted ? styles.danger : ''}`} onClick={onToggleMute} title={isMuted ? "Unmute" : "Mute"}>
+            {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+          </button>
+          <button className={`${styles.controlBtn} ${isVideoOff ? styles.danger : ''}`} onClick={toggleVideo} title="Camera">
+            {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
           </button>
         </div>
 
-        {/* ── Video area — only for video calls ───────────── */}
-        {isVideoCall && (
-          <div className={styles.videoArea}>
-            {/* Remote video */}
-            <video
-              ref={setRemoteVideoEl}
-              autoPlay
-              playsInline
-              className={styles.remoteVideo}
-            />
-            {!hasRemoteVideo && callState === 'connected' && (
-              <div className={styles.waitingOverlay}>
-                <Loader2 size={32} className={styles.spin} />
-                <span>Waiting for video…</span>
-              </div>
+        <div className={styles.controlGroup}>
+          <button className={`${styles.controlBtn} ${isScreenSharing ? styles.active : ''}`} onClick={toggleScreenShare} title="Share Screen">
+            {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
+          </button>
+          <button className={`${styles.controlBtn} ${isDeafened ? styles.danger : ''}`} onClick={onToggleDeafen} title="Deafen">
+            {isDeafened ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.9 13.5a10.02 10.02 0 0 0-2.43-8.83M5.1 10.5A10 10 0 0 0 12 22"></path><path d="M9 18a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3"></path><path d="M15 12a3 3 0 0 1 3 3v2.85"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
             )}
-
-            {/* Local preview — shows camera OR screen share */}
-            <video
-              ref={setLocalVideoEl}
-              autoPlay
-              playsInline
-              muted
-              className={`${styles.localVideo} ${isVideoOff && !isScreenSharing ? styles.hidden : ''}`}
-            />
-          </div>
-        )}
-
-        {/* ── Audio-only: big avatar ────────────────────────── */}
-        {!isVideoCall && callState !== 'ended' && callState !== 'error' && (
-          <div className={styles.audioArea}>
-            <div className={`${styles.avatarLarge} ${callState === 'calling' || callState === 'ringing' ? styles.pulse : ''}`}>
-              {targetUser?.username?.charAt(0).toUpperCase() || '?'}
-            </div>
-            {callState === 'connected' && (
-              <div className={styles.connectedLabel}>
-                <span className={styles.connectedDot} />
-                {fmt(duration)}
-              </div>
-            )}
-            {(callState === 'calling' || callState === 'ringing') && (
-              <div className={styles.dots}>
-                <span /><span /><span />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Error / ended ────────────────────────────────── */}
-        {(callState === 'error' || callState === 'rejected') && (
-          <div className={styles.errorArea}>
-            <p>{callState === 'error' ? '⚠️ Connection failed' : '❌ Call rejected'}</p>
-          </div>
-        )}
-
-        {/* ── Controls ─────────────────────────────────────── */}
-        <div className={styles.controls}>
-          {callState === 'ringing' && (
-            <>
-              <button className={`${styles.ctrlBtn} ${styles.accept}`} onClick={() => acceptCall(initialSignal)} title="Accept">
-                <Phone size={22} />
-              </button>
-              <button className={`${styles.ctrlBtn} ${styles.reject}`} onClick={handleReject} title="Decline">
-                <PhoneOff size={22} />
-              </button>
-            </>
-          )}
-
-          {(callState === 'calling' || callState === 'connected') && (
-            <>
-              <button className={`${styles.ctrlBtn} ${isMuted ? styles.active : ''}`} onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
-                {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
-              </button>
-
-              {isVideoCall && (
-                <>
-                  <button className={`${styles.ctrlBtn} ${isVideoOff ? styles.active : ''}`} onClick={toggleVideo} title={isVideoOff ? 'Camera On' : 'Camera Off'}>
-                    {isVideoOff ? <VideoOff size={22} /> : <Video size={22} />}
-                  </button>
-                  <button className={`${styles.ctrlBtn} ${isScreenSharing ? styles.active : ''}`} onClick={toggleScreenShare} title={isScreenSharing ? 'Stop Share' : 'Share Screen'}>
-                    {isScreenSharing ? <MonitorOff size={22} /> : <Monitor size={22} />}
-                  </button>
-                </>
-              )}
-
-              <button className={`${styles.ctrlBtn} ${styles.reject}`} onClick={handleEndCall} title="End Call">
-                <PhoneOff size={22} />
-              </button>
-            </>
-          )}
+          </button>
         </div>
+
+        <button className={styles.endCallBtnBig} onClick={handleEndCall} title="Disconnect">
+          <PhoneOff size={22} />
+        </button>
       </div>
-    </div>
+    </div>,
+    videoPortalTarget
+  ) : null;
+
+  return (
+    <>
+      {audioEl}
+      {voiceConnectedPanel}
+      {videoPortal}
+    </>
   );
 }
