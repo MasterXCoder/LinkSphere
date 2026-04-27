@@ -330,6 +330,38 @@ const postMessage = catchAsync(async (req, res) => {
   res.status(201).json(newMessage);
 });
 
+// ─── Post Call Start Event ────────────────────────────────────────────────────
+const postCallStartEvent = catchAsync(async (req, res) => {
+  const id = Number(req.params.id);
+  const { channelId } = req.params;
+  const { callType = "audio" } = req.body || {};
+
+  const server = await Server.findOne({ id });
+  if (!server) throw new ApiError(404, "Server not found");
+  if (!server.members.includes(req.user.id)) throw new ApiError(403, "Forbidden");
+
+  const channel = server.channels.find((c) => c.id === channelId);
+  if (!channel) throw new ApiError(404, "Channel not found");
+
+  const normalizedCallType = callType === "video" ? "video" : "audio";
+  const newMessage = new Message({
+    serverId: id,
+    channelId,
+    type: "system",
+    systemKind: "call_started",
+    content: `${req.user.username} started a ${normalizedCallType} call.`,
+  });
+
+  await newMessage.save();
+
+  const io = req.app.get("io");
+  if (io) {
+    io.to(channelId).emit("new_message", newMessage.toObject());
+  }
+
+  res.status(201).json(newMessage);
+});
+
 module.exports = {
   createServer,
   getMyServers,
@@ -342,6 +374,7 @@ module.exports = {
   leaveServer,
   getChannelMessages,
   postMessage,
+  postCallStartEvent,
   getServerByInvite,
   joinByInvite,
 };

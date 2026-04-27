@@ -504,7 +504,23 @@ export default function AppPage() {
   };
 
   // ── Voice/Video Call Functions ──
-  const startCall = (targetMember, type) => {
+  const logCallStartEvent = async (type) => {
+    if (!activeServer || activeServer === "home" || !activeChannel) return;
+    try {
+      await fetch(
+        `${API}/servers/${activeServer}/channels/${activeChannel}/call-events`,
+        {
+          method: "POST",
+          headers: authHeaders(token),
+          body: JSON.stringify({ callType: type }),
+        }
+      );
+    } catch (err) {
+      console.error("Failed to log call start event:", err);
+    }
+  };
+
+  const startCall = async (targetMember, type) => {
     if (!targetMember?.socketId) {
       alert('User is not online');
       return;
@@ -513,6 +529,7 @@ export default function AppPage() {
       alert('Cannot call yourself');
       return;
     }
+    await logCallStartEvent(type);
     setTargetUser(targetMember);
     setCallType(type);
     setIncomingCall(null);
@@ -1125,7 +1142,17 @@ export default function AppPage() {
                     </div>
                   )}
                   {messages.map((msg) => (
-                    msg.type === "system" ? (
+                    msg.type === "system" && msg.systemKind === "call_started" ? (
+                      <div key={msg.id} className={styles.callSystemMsg}>
+                        <div className={styles.callSystemIcon}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16.42v3.54a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 1.14 4.18 2 2 0 0 1 3.13 2h3.54a2 2 0 0 1 2 1.72c.12.89.35 1.76.68 2.59a2 2 0 0 1-.45 2.11L7.42 9.9a16 16 0 0 0 6.68 6.68l1.48-1.48a2 2 0 0 1 2.11-.45c.83.33 1.7.56 2.59.68A2 2 0 0 1 21 16.42z" /></svg>
+                        </div>
+                        <span className={styles.callSystemText}>{msg.content}</span>
+                        <span className={styles.msgTimestamp}>
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    ) : msg.type === "system" ? (
                       <div key={msg.id} className={styles.systemMsg}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3" /></svg>
                         <span>{msg.content}</span>
