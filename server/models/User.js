@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema({
     type: Number,
   }],
   friendRequests: [{
-    fromId: {
+    from: {
       type: Number,
       required: true,
     },
