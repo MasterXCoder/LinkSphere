@@ -647,6 +647,7 @@ export default function CallModal({
                 playsInline
                 muted
                 className={`${styles.localVideo} ${showLocalAvatar ? styles.hidden : ''}`}
+                style={isScreenSharing ? { transform: 'scaleX(1)' } : undefined}
               />
               {showLocalAvatar && (
                 <div className={`${styles.tileAvatar} ${isLocalSpeaking ? styles.isSpeaking : ''}`} style={auth?.user?.avatarUrl ? { backgroundImage: `url(${auth.user.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : { background: 'linear-gradient(135deg, #10b981, #3b82f6)' }}>
