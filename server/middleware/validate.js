@@ -12,14 +12,15 @@ const validate = (schema) => (req, res, next) => {
 
   if (!result.success) {
     // Format Zod errors into a flat array of readable messages
-    const errors = result.error.errors.map((e) => ({
+    const issues = result.error.issues || result.error.errors || [];
+    const errors = issues.map((e) => ({
       field: e.path.join("."),
       message: e.message,
     }));
 
     // Throw as a structured 400 error
     return next(
-      new ApiError(400, errors[0].message, true)
+      new ApiError(400, errors[0]?.message || "Invalid request data", true)
     );
   }
 

@@ -865,6 +865,37 @@
   flex-shrink: 0;
 }
 
+.callSystemMsg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 2px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(34, 197, 94, 0.08);
+  color: #b7f7c8;
+  font-size: 13px;
+}
+
+.callSystemIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.22);
+  color: #4ade80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.callSystemText {
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+}
+
 /* Chat input */
 .chatInputContainer {
   display: flex;

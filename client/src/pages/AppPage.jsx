@@ -139,6 +139,10 @@ export default function AppPage() {
   const [showStatusSubmenu, setShowStatusSubmenu] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('online');
 
+  // Global Audio States
+  const [isMuted, setIsMuted] = useState(false);
+  const [isDeafened, setIsDeafened] = useState(false);
+
   // Attachment State
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [attachmentPreview, setAttachmentPreview] = useState(null);
@@ -504,7 +508,23 @@ export default function AppPage() {
   };
 
   // ── Voice/Video Call Functions ──
-  const startCall = (targetMember, type) => {
+  const logCallStartEvent = async (type) => {
+    if (!activeServer || activeServer === "home" || !activeChannel) return;
+    try {
+      await fetch(
+        `${API}/servers/${activeServer}/channels/${activeChannel}/call-events`,
+        {
+          method: "POST",
+          headers: authHeaders(token),
+          body: JSON.stringify({ callType: type }),
+        }
+      );
+    } catch (err) {
+      console.error("Failed to log call start event:", err);
+    }
+  };
+
+  const startCall = async (targetMember, type) => {
     if (!targetMember?.socketId) {
       alert('User is not online');
       return;
@@ -513,6 +533,7 @@ export default function AppPage() {
       alert('Cannot call yourself');
       return;
     }
+    await logCallStartEvent(type);
     setTargetUser(targetMember);
     setCallType(type);
     setIncomingCall(null);
@@ -707,11 +728,44 @@ export default function AppPage() {
         </div>
         <div className={styles.userText}>
           <div className={styles.userName}>{username}</div>
-          <div className={styles.userStatus}>{STATUSES[currentStatus].label}</div>
+          <div className={styles.userStatus}>
+            {isCallModalOpen ? (
+              <span style={{ color: '#23a559', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                In voice
+              </span>
+            ) : (
+              STATUSES[currentStatus].label
+            )}
+          </div>
         </div>
       </div>
 
       <div className={styles.userControls}>
+        <button 
+          type="button" 
+          className={`${styles.userIconBtn} ${isMuted ? styles.userIconBtnDanger : ''}`} 
+          title={isMuted ? "Unmute" : "Mute"} 
+          onClick={() => setIsMuted(!isMuted)}
+        >
+          {isMuted ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+          )}
+        </button>
+        <button 
+          type="button" 
+          className={`${styles.userIconBtn} ${isDeafened ? styles.userIconBtnDanger : ''}`} 
+          title={isDeafened ? "Undeafen" : "Deafen"} 
+          onClick={() => setIsDeafened(!isDeafened)}
+        >
+          {isDeafened ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.9 13.5a10.02 10.02 0 0 0-2.43-8.83M5.1 10.5A10 10 0 0 0 12 22"></path><path d="M9 18a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3"></path><path d="M15 12a3 3 0 0 1 3 3v2.85"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+          )}
+        </button>
         <button type="button" className={styles.userIconBtn} title="User Settings" onClick={() => setShowSettings(true)}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path fillRule="evenodd" clipRule="evenodd" d="M19.738 10H22V14H19.739C19.498 14.931 19.1 15.798 18.565 16.564L20.166 18.166L17.336 20.995L15.736 19.396C14.998 19.901 14.167 20.279 13.279 20.505V23H9.279V20.505C8.391 20.28 7.559 19.901 6.822 19.396L5.222 20.995L2.392 18.166L3.993 16.564C3.458 15.798 3.06 14.931 2.819 14H0.5V10H2.819C3.06 9.069 3.458 8.202 3.993 7.436L2.392 5.834L5.222 3.005L6.822 4.604C7.559 4.099 8.391 3.721 9.279 3.495V1H13.279V3.495C14.167 3.72 14.998 4.099 15.736 4.604L17.336 3.005L20.166 5.834L18.565 7.436C19.1 8.202 19.498 9.069 19.738 10ZM11.279 16C13.488 16 15.279 14.209 15.279 12C15.279 9.791 13.488 8 11.279 8C9.07 8 7.279 9.791 7.279 12C7.279 14.209 9.07 16 11.279 16Z" />
@@ -880,6 +934,7 @@ export default function AppPage() {
             </section>
           </>
         )}
+        <div id="voice-controls-portal"></div>
         <UserInfoBar />
       </aside>
 
@@ -890,6 +945,7 @@ export default function AppPage() {
         onMouseMove={handleMouseMove}
       >
         <div className={styles.dynamicGlow}></div> {/* Dynamic Background Layer */}
+        <div id="main-video-portal"></div>
 
         {activeServer === "home" ? (
           <>
@@ -1125,7 +1181,17 @@ export default function AppPage() {
                     </div>
                   )}
                   {messages.map((msg) => (
-                    msg.type === "system" ? (
+                    msg.type === "system" && msg.systemKind === "call_started" ? (
+                      <div key={msg.id} className={styles.callSystemMsg}>
+                        <div className={styles.callSystemIcon}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16.42v3.54a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 1.14 4.18 2 2 0 0 1 3.13 2h3.54a2 2 0 0 1 2 1.72c.12.89.35 1.76.68 2.59a2 2 0 0 1-.45 2.11L7.42 9.9a16 16 0 0 0 6.68 6.68l1.48-1.48a2 2 0 0 1 2.11-.45c.83.33 1.7.56 2.59.68A2 2 0 0 1 21 16.42z" /></svg>
+                        </div>
+                        <span className={styles.callSystemText}>{msg.content}</span>
+                        <span className={styles.msgTimestamp}>
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    ) : msg.type === "system" ? (
                       <div key={msg.id} className={styles.systemMsg}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3" /></svg>
                         <span>{msg.content}</span>
@@ -1283,6 +1349,10 @@ export default function AppPage() {
           callType={callType}
           isIncoming={!!incomingCall}
           initialSignal={incomingCall}
+          isMuted={isMuted}
+          isDeafened={isDeafened}
+          onToggleMute={() => setIsMuted(!isMuted)}
+          onToggleDeafen={() => setIsDeafened(!isDeafened)}
         />
       )}
 
