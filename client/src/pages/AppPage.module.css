@@ -1618,3 +1618,216 @@
   cursor: not-allowed;
 }
 
+/* ═══════════════════════════════════════════
+   FRIEND SYSTEM
+   ═══════════════════════════════════════════ */
+
+.pendingBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  padding: 0 5px;
+  margin-left: 6px;
+}
+
+.friendListSection {
+  padding: 0;
+}
+
+.friendListHeader {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.friendRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.friendRow:hover {
+  background: var(--bg-hover);
+}
+
+.friendRow:last-child {
+  border-bottom: none;
+}
+
+.friendRowLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.friendAvatarWrap {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.friendAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.friendDot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2.5px solid var(--bg-surface);
+}
+
+.friendInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.friendName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.friendStatusText {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.friendRowActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.friendActionBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--bg-raised);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.friendActionBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.friendActionDanger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.friendActionAccept {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success);
+}
+
+.friendActionAccept:hover {
+  background: rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+}
+
+.emptyFriendsMsg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  gap: 16px;
+}
+
+.emptyFriendsMsg p {
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 300px;
+}
+
+.friendFeedback {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.feedbackSuccess {
+  background: rgba(34, 197, 94, 0.1);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.feedbackError {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.activeNowList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.activeNowItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+
+.activeNowItem:hover {
+  background: var(--bg-hover);
+}
+
+.activeNowName {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}

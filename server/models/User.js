@@ -37,6 +37,19 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  friends: {
+    type: [Number],
+    default: [],
+  },
+  friendRequests: {
+    type: [
+      {
+        from: { type: Number, required: true },   // sender's custom `id`
+        status: { type: String, enum: ['pending', 'accepted'], default: 'pending' },
+      }
+    ],
+    default: [],
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

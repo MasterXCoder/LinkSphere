@@ -8,6 +8,7 @@ const userRoutes = require("./routes/userRoutes");
 const serverRoutes = require("./routes/serverRoutes");
 const authRoutes = require("./routes/authRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
+const friendRoutes = require("./routes/friendRoutes");
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/servers", serverRoutes);
 app.use("/api/auth", authRoutes);      // Google OAuth routes
 app.use("/api/upload", uploadRoutes);  // Cloudinary image upload
+app.use("/api/friends", friendRoutes); // Friend system
 
 // Health check
 app.get("/api/health", (req, res) => {
