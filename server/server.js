@@ -114,6 +114,14 @@ io.on("connection", async (socket) => {
     io.to(to).emit("ice-candidate", { candidate });
   });
 
+  socket.on("toggle-video", ({ to, isVideoOff }) => {
+    io.to(to).emit("toggle-video", { isVideoOff });
+  });
+
+  socket.on("toggle-mute", ({ to, isMuted }) => {
+    io.to(to).emit("toggle-mute", { isMuted });
+  });
+
   socket.on("disconnect", async () => {
     console.log(`🔌 Client disconnected: ${socket.id} (User: ${socket.user.username})`);
     const socketSet = userSockets.get(userId);

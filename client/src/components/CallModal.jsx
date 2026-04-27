@@ -34,6 +34,8 @@ export default function CallModal({
   const [isRemoteSpeaking, setIsRemoteSpeaking] = useState(false);
   const [localStreamTrigger, setLocalStreamTrigger] = useState(0);
   const [remoteStreamTrigger, setRemoteStreamTrigger] = useState(0);
+  const [isRemoteVideoOff, setIsRemoteVideoOff] = useState(false);
+  const [isRemoteMuted, setIsRemoteMuted] = useState(false);
 
   // ── Stable refs — never stale inside any callback ─────────────────────────
   const pcRef              = useRef(null);
@@ -296,16 +298,28 @@ export default function CallModal({
 
     const onCallEnded = () => doCleanup();
 
+    const onToggleVideo = ({ isVideoOff }) => {
+      setIsRemoteVideoOff(isVideoOff);
+    };
+
+    const onToggleRemoteMute = ({ isMuted: remoteIsMuted }) => {
+      setIsRemoteMuted(remoteIsMuted);
+    };
+
     socket.on('call-accepted', onCallAccepted);
     socket.on('ice-candidate', onIceCandidate);
     socket.on('call-rejected', onCallRejected);
     socket.on('call-ended', onCallEnded);
+    socket.on('toggle-video', onToggleVideo);
+    socket.on('toggle-mute', onToggleRemoteMute);
 
     return () => {
       socket.off('call-accepted', onCallAccepted);
       socket.off('ice-candidate', onIceCandidate);
       socket.off('call-rejected', onCallRejected);
       socket.off('call-ended', onCallEnded);
+      socket.off('toggle-video', onToggleVideo);
+      socket.off('toggle-mute', onToggleRemoteMute);
     };
   }, [socket, drainIceQueue, doCleanup]);
 
@@ -405,6 +419,12 @@ export default function CallModal({
     if (track) {
       track.enabled = !isMuted;
     }
+    if (socketRef.current && targetRef.current?.socketId) {
+      socketRef.current.emit('toggle-mute', {
+        to: targetRef.current.socketId,
+        isMuted
+      });
+    }
   }, [isMuted]);
 
   // React to global deafen state
@@ -418,7 +438,12 @@ export default function CallModal({
     const track = localStreamRef.current?.getVideoTracks()[0];
     if (!track) return;
     track.enabled = !track.enabled;
-    setIsVideoOff(!track.enabled);
+    const nextIsVideoOff = !track.enabled;
+    setIsVideoOff(nextIsVideoOff);
+    socketRef.current?.emit('toggle-video', {
+      to: targetRef.current?.socketId,
+      isVideoOff: nextIsVideoOff
+    });
   };
 
   // ── Screen share — uses ref to avoid stale closure in onended ────────────
@@ -585,14 +610,14 @@ export default function CallModal({
     <div className={styles.mainVideoPortal}>
       <div className={styles.callGrid}>
         {/* Remote Tile */}
-        <div className={`${styles.gridTile} ${isRemoteSpeaking && hasRemoteVideo ? styles.isSpeakingVideo : ''}`}>
+        <div className={`${styles.gridTile} ${isRemoteSpeaking && (hasRemoteVideo && !isRemoteVideoOff) ? styles.isSpeakingVideo : ''}`}>
           <video
             ref={setRemoteVideoEl}
             autoPlay
             playsInline
-            className={`${styles.remoteVideo} ${!hasRemoteVideo ? styles.hidden : ''}`}
+            className={`${styles.remoteVideo} ${(!hasRemoteVideo || isRemoteVideoOff) ? styles.hidden : ''}`}
           />
-          {!hasRemoteVideo && (
+          {(!hasRemoteVideo || isRemoteVideoOff) && (
             <>
               <div className={`${styles.tileAvatar} ${isRemoteSpeaking ? styles.isSpeaking : ''}`} style={targetUser?.avatarUrl ? { backgroundImage: `url(${targetUser.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
                 {!targetUser?.avatarUrl && (targetUser?.username?.charAt(0).toUpperCase() || '?')}
@@ -604,7 +629,10 @@ export default function CallModal({
               )}
             </>
           )}
-          <div className={styles.tileName}>{targetUser?.username || 'Remote User'}</div>
+          <div className={styles.tileName} style={{ display: 'flex', alignItems: 'center' }}>
+            {targetUser?.username || 'Remote User'}
+            {isRemoteMuted && <MicOff size={14} style={{ marginLeft: 6, color: '#f23f43' }} />}
+          </div>
         </div>
 
         {/* Local Tile */}
@@ -625,7 +653,10 @@ export default function CallModal({
                   {!auth?.user?.avatarUrl && "You"}
                 </div>
               )}
-              <div className={styles.tileName}>You</div>
+              <div className={styles.tileName} style={{ display: 'flex', alignItems: 'center' }}>
+                You
+                {isMuted && <MicOff size={14} style={{ marginLeft: 6, color: '#f23f43' }} />}
+              </div>
             </div>
           );
         })()}
