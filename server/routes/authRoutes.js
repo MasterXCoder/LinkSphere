@@ -37,7 +37,7 @@ router.get(
     console.log("Generating JWT for user:", req.user.username);
     // Generate JWT — same payload shape as existing login
     const token = jwt.sign(
-      { id: req.user.id, username: req.user.username },
+      { id: req.user.id || req.user._id, username: req.user.username },
       SECRET,
       { expiresIn: "1h" }
     );
@@ -45,7 +45,7 @@ router.get(
     // Encode user data for the frontend
     const userData = encodeURIComponent(
       JSON.stringify({
-        id: req.user.id,
+        id: req.user.id || req.user._id,
         username: req.user.username,
         email: req.user.email,
         dob: req.user.dob || "",

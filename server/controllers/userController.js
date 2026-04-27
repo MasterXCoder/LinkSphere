@@ -142,7 +142,11 @@ const deleteUser = catchAsync(async (req, res) => {
 // ─── Friend System ────────────────────────────────────────────────────────────
 const sendFriendRequest = catchAsync(async (req, res) => {
   const { username } = req.body;
-  const currentUserId = req.user.id;
+  const currentUserId = req.user.id || req.user._id || req.user.userId;
+
+  if (!currentUserId) {
+    throw new ApiError(400, "Authentication error: Missing user ID in token");
+  }
 
   if (!username) {
     throw new ApiError(400, "Username is required");
@@ -189,7 +193,7 @@ const sendFriendRequest = catchAsync(async (req, res) => {
 
 const acceptFriendRequest = catchAsync(async (req, res) => {
   const { fromId } = req.body;
-  const currentUserId = req.user.id;
+  const currentUserId = req.user.id || req.user._id || req.user.userId;
 
   const currentUser = await User.findOne({ id: currentUserId });
   const fromUser = await User.findOne({ id: fromId });
@@ -227,7 +231,7 @@ const acceptFriendRequest = catchAsync(async (req, res) => {
 
 const rejectFriendRequest = catchAsync(async (req, res) => {
   const { fromId } = req.body;
-  const currentUserId = req.user.id;
+  const currentUserId = req.user.id || req.user._id || req.user.userId;
 
   const currentUser = await User.findOne({ id: currentUserId });
 
@@ -245,7 +249,7 @@ const rejectFriendRequest = catchAsync(async (req, res) => {
 });
 
 const getFriendsAndRequests = catchAsync(async (req, res) => {
-  const currentUserId = req.user.id;
+  const currentUserId = req.user.id || req.user._id || req.user.userId;
   const currentUser = await User.findOne({ id: currentUserId });
 
   if (!currentUser) throw new ApiError(404, "User not found");
