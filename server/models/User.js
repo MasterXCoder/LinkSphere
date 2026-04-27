@@ -34,19 +34,24 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
-  friends: {
-    type: [Number],
-    default: [],
-  },
-  friendRequests: {
-    type: [
-      {
-        from: { type: Number, required: true },   // sender's custom `id`
-        status: { type: String, enum: ['pending', 'accepted'], default: 'pending' },
-      }
-    ],
-    default: [],
-  },
+  friends: [{
+    type: Number,
+  }],
+  friendRequests: [{
+    fromId: {
+      type: Number,
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'rejected'],
+      default: 'pending'
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
 }, { timestamps: true });
 
 userSchema.index(

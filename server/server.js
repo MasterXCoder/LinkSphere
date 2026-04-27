@@ -122,6 +122,14 @@ io.on("connection", async (socket) => {
     io.to(to).emit("toggle-mute", { isMuted });
   });
 
+  socket.on("renegotiate", ({ to, signal }) => {
+    io.to(to).emit("renegotiate", signal);
+  });
+
+  socket.on("toggle-screen-share", ({ to, isScreenSharing }) => {
+    io.to(to).emit("toggle-screen-share", { isScreenSharing });
+  });
+
   socket.on("disconnect", async () => {
     console.log(`🔌 Client disconnected: ${socket.id} (User: ${socket.user.username})`);
     const socketSet = userSockets.get(userId);

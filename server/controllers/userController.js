@@ -139,4 +139,137 @@ const deleteUser = catchAsync(async (req, res) => {
   res.status(200).json({ message: "Account deleted successfully" });
 });
 
-module.exports = { signup, login, getUser, updateUser, deleteUser };
+// ─── Friend System ────────────────────────────────────────────────────────────
+const sendFriendRequest = catchAsync(async (req, res) => {
+  const { username } = req.body;
+  const currentUserId = req.user.id;
+
+  if (!username) {
+    throw new ApiError(400, "Username is required");
+  }
+
+  const currentUser = await User.findOne({ id: currentUserId });
+  const targetUser = await User.findOne({ username });
+
+  if (!targetUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  if (targetUser.id === currentUserId) {
+    throw new ApiError(400, "You cannot send a friend request to yourself");
+  }
+
+  if (targetUser.friends && targetUser.friends.includes(currentUserId)) {
+    throw new ApiError(400, "You are already friends with this user");
+  }
+
+  // Check if target user already has a pending request from current user
+  const existingRequest = targetUser.friendRequests && targetUser.friendRequests.find(r => r.fromId === currentUserId && r.status === 'pending');
+  if (existingRequest) {
+    throw new ApiError(400, "Friend request already sent");
+  }
+
+  // Add friend request to target user
+  if (!targetUser.friendRequests) targetUser.friendRequests = [];
+  targetUser.friendRequests.push({ fromId: currentUserId, status: 'pending' });
+  await targetUser.save();
+
+  // Socket notification will be handled in the route or controller later if we have socket instance
+  // For now we can use req.app.get('io') to emit
+  const io = req.app.get("io");
+  if (io) {
+    // We emit to the target user's rooms (userId is used as room or we broadcast to their socket directly if mapped)
+    // Looking at server.js, users aren't joining rooms by userId, but we can emit to specific socketId.
+    // Actually, we can just emit an event, but `server.js` manages `userSockets`. We'll broadcast `friend-request-received` and the client will filter, OR we can emit globally and let clients filter.
+    io.emit('friend-request-received', { targetUserId: targetUser.id, fromUser: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl } });
+  }
+
+  res.status(200).json({ message: "Friend request sent" });
+});
+
+const acceptFriendRequest = catchAsync(async (req, res) => {
+  const { fromId } = req.body;
+  const currentUserId = req.user.id;
+
+  const currentUser = await User.findOne({ id: currentUserId });
+  const fromUser = await User.findOne({ id: fromId });
+
+  if (!fromUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  // Find the pending request
+  const requestIndex = currentUser.friendRequests.findIndex(r => r.fromId === fromId && r.status === 'pending');
+  if (requestIndex === -1) {
+    throw new ApiError(400, "No pending friend request found");
+  }
+
+  // Update status
+  currentUser.friendRequests[requestIndex].status = 'accepted';
+
+  // Add to friends lists
+  if (!currentUser.friends.includes(fromId)) currentUser.friends.push(fromId);
+  if (!fromUser.friends.includes(currentUserId)) fromUser.friends.push(currentUserId);
+
+  await currentUser.save();
+  await fromUser.save();
+
+  const io = req.app.get("io");
+  if (io) {
+    io.emit('friend-request-accepted', { 
+      targetUserId: fromId, 
+      fromUser: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl } 
+    });
+  }
+
+  res.status(200).json({ message: "Friend request accepted" });
+});
+
+const rejectFriendRequest = catchAsync(async (req, res) => {
+  const { fromId } = req.body;
+  const currentUserId = req.user.id;
+
+  const currentUser = await User.findOne({ id: currentUserId });
+
+  // Find the pending request
+  const requestIndex = currentUser.friendRequests.findIndex(r => r.fromId === fromId && r.status === 'pending');
+  if (requestIndex === -1) {
+    throw new ApiError(400, "No pending friend request found");
+  }
+
+  // Update status or remove it. Let's just remove it or set to rejected
+  currentUser.friendRequests[requestIndex].status = 'rejected';
+  await currentUser.save();
+
+  res.status(200).json({ message: "Friend request rejected" });
+});
+
+const getFriendsAndRequests = catchAsync(async (req, res) => {
+  const currentUserId = req.user.id;
+  const currentUser = await User.findOne({ id: currentUserId });
+
+  if (!currentUser) throw new ApiError(404, "User not found");
+
+  // Fetch friends details
+  const friends = await User.find({ id: { $in: currentUser.friends || [] } }, 'id username avatarUrl');
+
+  // Fetch pending requests details
+  const pendingRequests = (currentUser.friendRequests || []).filter(r => r.status === 'pending');
+  const fromIds = pendingRequests.map(r => r.fromId);
+  
+  const pendingUsers = await User.find({ id: { $in: fromIds } }, 'id username avatarUrl');
+  
+  const requests = pendingRequests.map(req => {
+    const u = pendingUsers.find(user => user.id === req.fromId);
+    return {
+      fromId: req.fromId,
+      username: u ? u.username : 'Unknown',
+      avatarUrl: u ? u.avatarUrl : null,
+      createdAt: req.createdAt
+    };
+  });
+
+  res.status(200).json({ friends, friendRequests: requests });
+});
+
+module.exports = { signup, login, getUser, updateUser, deleteUser, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, getFriendsAndRequests };

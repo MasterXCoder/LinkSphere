@@ -36,6 +36,7 @@ export default function CallModal({
   const [remoteStreamTrigger, setRemoteStreamTrigger] = useState(0);
   const [isRemoteVideoOff, setIsRemoteVideoOff] = useState(false);
   const [isRemoteMuted, setIsRemoteMuted] = useState(false);
+  const [isRemoteScreenSharing, setIsRemoteScreenSharing] = useState(false);
 
   // ── Stable refs — never stale inside any callback ─────────────────────────
   const pcRef              = useRef(null);
@@ -306,12 +307,36 @@ export default function CallModal({
       setIsRemoteMuted(remoteIsMuted);
     };
 
+    const onToggleRemoteScreenShare = ({ isScreenSharing }) => {
+      setIsRemoteScreenSharing(isScreenSharing);
+    };
+
+    const onRenegotiate = async (signal) => {
+      const pc = pcRef.current;
+      if (!pc) return;
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(signal));
+        if (signal.type === 'offer') {
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socketRef.current?.emit('renegotiate', {
+            to: targetRef.current?.socketId,
+            signal: answer
+          });
+        }
+      } catch (err) {
+        console.error('onRenegotiate error:', err);
+      }
+    };
+
     socket.on('call-accepted', onCallAccepted);
     socket.on('ice-candidate', onIceCandidate);
     socket.on('call-rejected', onCallRejected);
     socket.on('call-ended', onCallEnded);
     socket.on('toggle-video', onToggleVideo);
     socket.on('toggle-mute', onToggleRemoteMute);
+    socket.on('toggle-screen-share', onToggleRemoteScreenShare);
+    socket.on('renegotiate', onRenegotiate);
 
     return () => {
       socket.off('call-accepted', onCallAccepted);
@@ -320,6 +345,8 @@ export default function CallModal({
       socket.off('call-ended', onCallEnded);
       socket.off('toggle-video', onToggleVideo);
       socket.off('toggle-mute', onToggleRemoteMute);
+      socket.off('toggle-screen-share', onToggleRemoteScreenShare);
+      socket.off('renegotiate', onRenegotiate);
     };
   }, [socket, drainIceQueue, doCleanup]);
 
@@ -447,14 +474,29 @@ export default function CallModal({
   };
 
   // ── Screen share — uses ref to avoid stale closure in onended ────────────
-  const stopScreenShare = useCallback(() => {
+  const triggerRenegotiation = async () => {
+    const pc = pcRef.current;
+    if (!pc) return;
+    try {
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      await pc.setLocalDescription(offer);
+      socketRef.current?.emit('renegotiate', {
+        to: targetRef.current?.socketId,
+        signal: offer
+      });
+    } catch (e) {
+      console.error('Renegotiation failed:', e);
+    }
+  };
+
+  const stopScreenShare = useCallback(async () => {
     screenRef.current?.getTracks().forEach(t => t.stop());
     screenRef.current = null;
     // Restore camera track in sender
     const camTrack = localStreamRef.current?.getVideoTracks()[0];
     const sender = pcRef.current?.getSenders().find(s => s.track?.kind === 'video');
     if (sender && camTrack) {
-      sender.replaceTrack(camTrack);
+      await sender.replaceTrack(camTrack);
     }
     // Restore local preview
     if (localVideoRef.current && localStreamRef.current) {
@@ -462,6 +504,11 @@ export default function CallModal({
     }
     setIsScreenSharing(false);
     isScreenSharingRef.current = false;
+    socketRef.current?.emit('toggle-screen-share', {
+      to: targetRef.current?.socketId,
+      isScreenSharing: false
+    });
+    triggerRenegotiation();
   }, []);
 
   const startScreenShare = useCallback(async () => {
@@ -491,6 +538,11 @@ export default function CallModal({
 
       setIsScreenSharing(true);
       isScreenSharingRef.current = true;
+      socketRef.current?.emit('toggle-screen-share', {
+        to: targetRef.current?.socketId,
+        isScreenSharing: true
+      });
+      triggerRenegotiation();
     } catch (e) {
       console.error('getDisplayMedia failed:', e);
     }
@@ -610,30 +662,36 @@ export default function CallModal({
     <div className={styles.mainVideoPortal}>
       <div className={styles.callGrid}>
         {/* Remote Tile */}
-        <div className={`${styles.gridTile} ${isRemoteSpeaking && (hasRemoteVideo && !isRemoteVideoOff) ? styles.isSpeakingVideo : ''}`}>
-          <video
-            ref={setRemoteVideoEl}
-            autoPlay
-            playsInline
-            className={`${styles.remoteVideo} ${(!hasRemoteVideo || isRemoteVideoOff) ? styles.hidden : ''}`}
-          />
-          {(!hasRemoteVideo || isRemoteVideoOff) && (
-            <>
-              <div className={`${styles.tileAvatar} ${isRemoteSpeaking ? styles.isSpeaking : ''}`} style={targetUser?.avatarUrl ? { backgroundImage: `url(${targetUser.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
-                {!targetUser?.avatarUrl && (targetUser?.username?.charAt(0).toUpperCase() || '?')}
-              </div>
-              {callState === 'connected' && (
-                <div className={styles.waitingOverlayAudio}>
-                  <span>Voice Connected</span>
-                </div>
+        {(() => {
+          const showRemoteVideo = hasRemoteVideo && (!isRemoteVideoOff || isRemoteScreenSharing);
+          return (
+            <div className={`${styles.gridTile} ${isRemoteSpeaking && showRemoteVideo ? styles.isSpeakingVideo : ''}`}>
+              <video
+                ref={setRemoteVideoEl}
+                autoPlay
+                playsInline
+                className={`${styles.remoteVideo} ${!showRemoteVideo ? styles.hidden : ''}`}
+                style={isRemoteScreenSharing ? { transform: 'scaleX(1)' } : undefined}
+              />
+              {!showRemoteVideo && (
+                <>
+                  <div className={`${styles.tileAvatar} ${isRemoteSpeaking ? styles.isSpeaking : ''}`} style={targetUser?.avatarUrl ? { backgroundImage: `url(${targetUser.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
+                    {!targetUser?.avatarUrl && (targetUser?.username?.charAt(0).toUpperCase() || '?')}
+                  </div>
+                  {callState === 'connected' && (
+                    <div className={styles.waitingOverlayAudio}>
+                      <span>Voice Connected</span>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
-          <div className={styles.tileName} style={{ display: 'flex', alignItems: 'center' }}>
-            {targetUser?.username || 'Remote User'}
-            {isRemoteMuted && <MicOff size={14} style={{ marginLeft: 6, color: '#f23f43' }} />}
-          </div>
-        </div>
+              <div className={styles.tileName} style={{ display: 'flex', alignItems: 'center' }}>
+                {targetUser?.username || 'Remote User'}
+                {isRemoteMuted && <MicOff size={14} style={{ marginLeft: 6, color: '#f23f43' }} />}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Local Tile */}
         {(() => {
@@ -647,6 +705,7 @@ export default function CallModal({
                 playsInline
                 muted
                 className={`${styles.localVideo} ${showLocalAvatar ? styles.hidden : ''}`}
+                style={isScreenSharing ? { transform: 'scaleX(1)' } : undefined}
               />
               {showLocalAvatar && (
                 <div className={`${styles.tileAvatar} ${isLocalSpeaking ? styles.isSpeaking : ''}`} style={auth?.user?.avatarUrl ? { backgroundImage: `url(${auth.user.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : { background: 'linear-gradient(135deg, #10b981, #3b82f6)' }}>
