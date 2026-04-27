@@ -25,9 +25,6 @@ const userSchema = new mongoose.Schema({
   },
   googleId: {
     type: String,
-    default: null,
-    unique: true,
-    sparse: true, // Allows multiple nulls but ensures uniqueness for non-null values
   },
   avatarUrl: {
     type: String,
@@ -56,5 +53,13 @@ const userSchema = new mongoose.Schema({
     }
   }],
 }, { timestamps: true });
+
+userSchema.index(
+  { googleId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { googleId: { $type: "string" } },
+  }
+);
 
 module.exports = mongoose.model("User", userSchema);

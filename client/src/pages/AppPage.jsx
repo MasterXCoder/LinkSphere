@@ -155,10 +155,117 @@ export default function AppPage() {
   const [targetUser, setTargetUser] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
 
+  // Friend system state
+  const [activeHomeTab, setActiveHomeTab] = useState('addFriend');
+  const [friendsData, setFriendsData] = useState({ friends: [], incoming: [], outgoing: [] });
+  const [friendRequestStatus, setFriendRequestStatus] = useState('');
+  const [friendRequestMsg, setFriendRequestMsg] = useState('');
+
   // Sync ref
   useEffect(() => {
     targetUserRef.current = targetUser;
   }, [targetUser]);
+
+  // ── Friend System ──
+  const fetchFriends = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/friends`, { headers: authHeaders(token) });
+      if (res.ok) {
+        const data = await res.json();
+        setFriendsData(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch friends:", err);
+    }
+  }, [token]);
+
+  useEffect(() => { fetchFriends(); }, [fetchFriends]);
+
+  // Re-fetch friends when switching tabs or periodically for real-time updates
+  useEffect(() => {
+    if (activeServer === "home") {
+      fetchFriends();
+      const interval = setInterval(fetchFriends, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [activeHomeTab, activeServer, fetchFriends]);
+
+  const handleSendFriendRequest = async () => {
+    if (!friendInput.trim()) return;
+    setFriendRequestStatus('');
+    setFriendRequestMsg('');
+    try {
+      const res = await fetch(`${API}/friends/request`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ toUsername: friendInput.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFriendRequestStatus('success');
+        setFriendRequestMsg(data.message || `Friend request sent to \"${friendInput}\"`);
+        setFriendInput('');
+        fetchFriends();
+      } else {
+        setFriendRequestStatus('error');
+        setFriendRequestMsg(data.error || "Failed to send request");
+      }
+    } catch (err) {
+      setFriendRequestStatus('error');
+      setFriendRequestMsg("Could not connect to server");
+    }
+  };
+
+  const handleAcceptFriend = async (fromId) => {
+    try {
+      await fetch(`${API}/friends/accept`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ fromId }),
+      });
+      fetchFriends();
+    } catch (err) {
+      console.error("Failed to accept friend:", err);
+    }
+  };
+
+  const handleDeclineFriend = async (fromId) => {
+    try {
+      await fetch(`${API}/friends/decline`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ fromId }),
+      });
+      fetchFriends();
+    } catch (err) {
+      console.error("Failed to decline friend:", err);
+    }
+  };
+
+  const handleCancelFriend = async (toId) => {
+    try {
+      await fetch(`${API}/friends/cancel`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ toId }),
+      });
+      fetchFriends();
+    } catch (err) {
+      console.error("Failed to cancel request:", err);
+    }
+  };
+
+  const handleRemoveFriend = async (friendId) => {
+    try {
+      await fetch(`${API}/friends/${friendId}`, {
+        method: "DELETE",
+        headers: authHeaders(token),
+      });
+      fetchFriends();
+    } catch (err) {
+      console.error("Failed to remove friend:", err);
+    }
+  };
 
   // ── Interaction Logic ──
   const handleMouseMove = (e) => {
@@ -401,7 +508,23 @@ export default function AppPage() {
   };
 
   // ── Voice/Video Call Functions ──
-  const startCall = (targetMember, type) => {
+  const logCallStartEvent = async (type) => {
+    if (!activeServer || activeServer === "home" || !activeChannel) return;
+    try {
+      await fetch(
+        `${API}/servers/${activeServer}/channels/${activeChannel}/call-events`,
+        {
+          method: "POST",
+          headers: authHeaders(token),
+          body: JSON.stringify({ callType: type }),
+        }
+      );
+    } catch (err) {
+      console.error("Failed to log call start event:", err);
+    }
+  };
+
+  const startCall = async (targetMember, type) => {
     if (!targetMember?.socketId) {
       alert('User is not online');
       return;
@@ -410,6 +533,7 @@ export default function AppPage() {
       alert('Cannot call yourself');
       return;
     }
+    await logCallStartEvent(type);
     setTargetUser(targetMember);
     setCallType(type);
     setIncomingCall(null);
@@ -833,46 +957,200 @@ export default function AppPage() {
                 </div>
                 <div className={styles.headerDivider}></div>
                 <div className={styles.headerTabs}>
-                  <button className={styles.tabBtn}>Online</button>
-                  <button className={styles.tabBtn}>All</button>
-                  <button className={styles.tabBtn}>Pending</button>
-                  <button className={`${styles.tabBtn} ${styles.activeTabBtn}`}>Add Friend</button>
+                  <button className={`${styles.tabBtn} ${activeHomeTab === 'online' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('online')}>Online</button>
+                  <button className={`${styles.tabBtn} ${activeHomeTab === 'all' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('all')}>All</button>
+                  <button className={`${styles.tabBtn} ${activeHomeTab === 'pending' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('pending')}>Pending{friendsData.incoming.length > 0 && <span className={styles.pendingBadge}>{friendsData.incoming.length}</span>}</button>
+                  <button className={`${styles.tabBtn} ${activeHomeTab === 'addFriend' ? styles.activeTabBtn : ''}`} onClick={() => { setActiveHomeTab('addFriend'); setFriendRequestMsg(''); }}>Add Friend</button>
                 </div>
               </div>
             </header>
             <div className={styles.friendsLayout}>
               <div className={styles.friendsMain}>
-                <div className={styles.addFriendSection}>
-                  <div className={styles.addFriendHeader}>
-                    <div>
-                      <h2 className={styles.addFriendTitle}>Add Friend</h2>
-                      <p className={styles.addFriendDesc}>You can add friends with their LinkSphere username.</p>
+                {/* ── Add Friend Tab ── */}
+                {activeHomeTab === 'addFriend' && (
+                  <>
+                    <div className={styles.addFriendSection}>
+                      <div className={styles.addFriendHeader}>
+                        <div>
+                          <h2 className={styles.addFriendTitle}>Add Friend</h2>
+                          <p className={styles.addFriendDesc}>You can add friends with their LinkSphere username.</p>
+                        </div>
+                      </div>
+                      <div className={styles.addFriendInputBox}>
+                        <input
+                          type="text"
+                          className={styles.friendInput}
+                          placeholder="Enter a username"
+                          value={friendInput}
+                          onChange={(e) => setFriendInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSendFriendRequest()}
+                        />
+                        <button
+                          className={`${styles.sendRequestBtn} ${friendInput ? styles.active : ""}`}
+                          onClick={handleSendFriendRequest}
+                          disabled={!friendInput.trim()}
+                        >
+                          Send Friend Request
+                        </button>
+                      </div>
+                      {friendRequestMsg && (
+                        <div className={`${styles.friendFeedback} ${friendRequestStatus === 'success' ? styles.feedbackSuccess : styles.feedbackError}`}>
+                          {friendRequestMsg}
+                        </div>
+                      )}
                     </div>
+                    <div className={styles.otherPlaces}>
+                      <h2 className={styles.addFriendTitle}>Your Servers</h2>
+                      <p className={styles.addFriendDesc}>You are a member of {servers.length} server{servers.length !== 1 ? "s" : ""}.</p>
+                    </div>
+                  </>
+                )}
+
+                {/* ── All Friends Tab ── */}
+                {activeHomeTab === 'all' && (
+                  <div className={styles.friendListSection}>
+                    <div className={styles.friendListHeader}>All Friends — {friendsData.friends.length}</div>
+                    {friendsData.friends.length === 0 ? (
+                      <div className={styles.emptyFriendsMsg}>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{opacity:0.3}}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                        <p>You don't have any friends yet. Send a friend request to get started!</p>
+                      </div>
+                    ) : (
+                      friendsData.friends.map(f => (
+                        <div key={f.id} className={styles.friendRow}>
+                          <div className={styles.friendRowLeft}>
+                            <div className={styles.friendAvatarWrap}>
+                              <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
+                                {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                              </div>
+                              <div className={styles.friendDot} style={{ background: onlineUsers[f.id] ? '#23a559' : '#80848e' }}></div>
+                            </div>
+                            <div className={styles.friendInfo}>
+                              <span className={styles.friendName}>{f.username}</span>
+                              <span className={styles.friendStatusText}>{onlineUsers[f.id] ? 'Online' : 'Offline'}</span>
+                            </div>
+                          </div>
+                          <div className={styles.friendRowActions}>
+                            <button className={styles.friendActionBtn} title="Message"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
+                            <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg></button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
-                  <div className={styles.addFriendInputBox}>
-                    <input
-                      type="text"
-                      className={styles.friendInput}
-                      placeholder="Enter a username"
-                      value={friendInput}
-                      onChange={(e) => setFriendInput(e.target.value)}
-                    />
-                    <button className={`${styles.sendRequestBtn} ${friendInput ? styles.active : ""}`}>
-                      Send Friend Request
-                    </button>
+                )}
+
+                {/* ── Online Friends Tab ── */}
+                {activeHomeTab === 'online' && (
+                  <div className={styles.friendListSection}>
+                    <div className={styles.friendListHeader}>Online — {friendsData.friends.filter(f => onlineUsers[f.id]).length}</div>
+                    {friendsData.friends.filter(f => onlineUsers[f.id]).length === 0 ? (
+                      <div className={styles.emptyFriendsMsg}>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{opacity:0.3}}><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                        <p>None of your friends are online right now.</p>
+                      </div>
+                    ) : (
+                      friendsData.friends.filter(f => onlineUsers[f.id]).map(f => (
+                        <div key={f.id} className={styles.friendRow}>
+                          <div className={styles.friendRowLeft}>
+                            <div className={styles.friendAvatarWrap}>
+                              <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
+                                {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                              </div>
+                              <div className={styles.friendDot} style={{ background: '#23a559' }}></div>
+                            </div>
+                            <div className={styles.friendInfo}>
+                              <span className={styles.friendName}>{f.username}</span>
+                              <span className={styles.friendStatusText}>Online</span>
+                            </div>
+                          </div>
+                          <div className={styles.friendRowActions}>
+                            <button className={styles.friendActionBtn} title="Message"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
+                            <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg></button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
-                </div>
-                <div className={styles.otherPlaces}>
-                  <h2 className={styles.addFriendTitle}>Your Servers</h2>
-                  <p className={styles.addFriendDesc}>You are a member of {servers.length} server{servers.length !== 1 ? "s" : ""}.</p>
-                </div>
+                )}
+
+                {/* ── Pending Tab ── */}
+                {activeHomeTab === 'pending' && (
+                  <div className={styles.friendListSection}>
+                    <div className={styles.friendListHeader}>Pending — {friendsData.incoming.length + friendsData.outgoing.length}</div>
+                    {friendsData.incoming.length === 0 && friendsData.outgoing.length === 0 ? (
+                      <div className={styles.emptyFriendsMsg}>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{opacity:0.3}}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        <p>No pending friend requests.</p>
+                      </div>
+                    ) : (
+                      <>
+                        {friendsData.incoming.map(f => (
+                          <div key={`in-${f.id}`} className={styles.friendRow}>
+                            <div className={styles.friendRowLeft}>
+                              <div className={styles.friendAvatarWrap}>
+                                <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
+                                  {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                                </div>
+                              </div>
+                              <div className={styles.friendInfo}>
+                                <span className={styles.friendName}>{f.username}</span>
+                                <span className={styles.friendStatusText}>Incoming Friend Request</span>
+                              </div>
+                            </div>
+                            <div className={styles.friendRowActions}>
+                              <button className={`${styles.friendActionBtn} ${styles.friendActionAccept}`} title="Accept" onClick={() => handleAcceptFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></button>
+                              <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Decline" onClick={() => handleDeclineFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+                            </div>
+                          </div>
+                        ))}
+                        {friendsData.outgoing.map(f => (
+                          <div key={`out-${f.id}`} className={styles.friendRow}>
+                            <div className={styles.friendRowLeft}>
+                              <div className={styles.friendAvatarWrap}>
+                                <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
+                                  {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                                </div>
+                              </div>
+                              <div className={styles.friendInfo}>
+                                <span className={styles.friendName}>{f.username}</span>
+                                <span className={styles.friendStatusText}>Outgoing Friend Request</span>
+                              </div>
+                            </div>
+                            <div className={styles.friendRowActions}>
+                              <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Cancel" onClick={() => handleCancelFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* ── Active Now Sidebar ── */}
               <aside className={styles.activeNow}>
                 <h3 className={styles.activeNowTitle}>Active Now</h3>
-                <div className={styles.emptyActiveCard}>
-                  <h4 className={styles.emptyActiveTitle}>It's quiet for now...</h4>
-                  <p className={styles.emptyActiveText}>When a friend starts an activity—like playing a game or hanging out on voice—we'll show it here!</p>
-                </div>
+                {friendsData.friends.filter(f => onlineUsers[f.id]).length === 0 ? (
+                  <div className={styles.emptyActiveCard}>
+                    <h4 className={styles.emptyActiveTitle}>It's quiet for now...</h4>
+                    <p className={styles.emptyActiveText}>When a friend starts an activity—like playing a game or hanging out on voice—we'll show it here!</p>
+                  </div>
+                ) : (
+                  <div className={styles.activeNowList}>
+                    {friendsData.friends.filter(f => onlineUsers[f.id]).map(f => (
+                      <div key={f.id} className={styles.activeNowItem}>
+                        <div className={styles.friendAvatarWrap}>
+                          <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
+                            {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div className={styles.friendDot} style={{ background: '#23a559' }}></div>
+                        </div>
+                        <span className={styles.activeNowName}>{f.username}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </aside>
             </div>
           </>
@@ -903,7 +1181,17 @@ export default function AppPage() {
                     </div>
                   )}
                   {messages.map((msg) => (
-                    msg.type === "system" ? (
+                    msg.type === "system" && msg.systemKind === "call_started" ? (
+                      <div key={msg.id} className={styles.callSystemMsg}>
+                        <div className={styles.callSystemIcon}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16.42v3.54a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 1.14 4.18 2 2 0 0 1 3.13 2h3.54a2 2 0 0 1 2 1.72c.12.89.35 1.76.68 2.59a2 2 0 0 1-.45 2.11L7.42 9.9a16 16 0 0 0 6.68 6.68l1.48-1.48a2 2 0 0 1 2.11-.45c.83.33 1.7.56 2.59.68A2 2 0 0 1 21 16.42z" /></svg>
+                        </div>
+                        <span className={styles.callSystemText}>{msg.content}</span>
+                        <span className={styles.msgTimestamp}>
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    ) : msg.type === "system" ? (
                       <div key={msg.id} className={styles.systemMsg}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3" /></svg>
                         <span>{msg.content}</span>

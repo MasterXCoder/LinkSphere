@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styles from './UserSettings.module.css';
@@ -67,6 +67,71 @@ export default function UserSettings({ onClose }) {
   const [addPwError, setAddPwError] = useState("");
   const [avatarUploadLoading, setAvatarUploadLoading] = useState(false);
   const avatarInputRef = useRef(null);
+
+  // Settings tab: 'account' | 'friends'
+  const [settingsTab, setSettingsTab] = useState('account');
+
+  // Friends state
+  const [friendsData, setFriendsData] = useState({ friends: [], incoming: [], outgoing: [] });
+  const [settingsFriendInput, setSettingsFriendInput] = useState('');
+  const [settingsFriendMsg, setSettingsFriendMsg] = useState('');
+  const [settingsFriendStatus, setSettingsFriendStatus] = useState('');
+
+  const fetchSettingsFriends = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/friends`, {
+        headers: { "Authorization": `Bearer ${auth.token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFriendsData(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch friends:", err);
+    }
+  }, [auth.token]);
+
+  useEffect(() => {
+    if (settingsTab === 'friends') fetchSettingsFriends();
+  }, [settingsTab, fetchSettingsFriends]);
+
+  const handleSettingsSendRequest = async () => {
+    if (!settingsFriendInput.trim()) return;
+    setSettingsFriendMsg('');
+    setSettingsFriendStatus('');
+    try {
+      const res = await fetch('/api/friends/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` },
+        body: JSON.stringify({ toUsername: settingsFriendInput.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSettingsFriendStatus('success');
+        setSettingsFriendMsg(data.message || 'Friend request sent!');
+        setSettingsFriendInput('');
+        fetchSettingsFriends();
+      } else {
+        setSettingsFriendStatus('error');
+        setSettingsFriendMsg(data.error || 'Failed to send request');
+      }
+    } catch { setSettingsFriendStatus('error'); setSettingsFriendMsg('Could not connect'); }
+  };
+
+  const handleSettingsAccept = async (fromId) => {
+    await fetch('/api/friends/accept', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` }, body: JSON.stringify({ fromId }) });
+    fetchSettingsFriends();
+  };
+
+  const handleSettingsDecline = async (fromId) => {
+    await fetch('/api/friends/decline', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` }, body: JSON.stringify({ fromId }) });
+    fetchSettingsFriends();
+  };
+
+  const handleSettingsRemove = async (friendId) => {
+    await fetch(`/api/friends/${friendId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${auth.token}` } });
+    fetchSettingsFriends();
+  };
 
   const handleAvatarSelect = async (e) => {
     const file = e.target.files[0];
@@ -405,7 +470,8 @@ export default function UserSettings({ onClose }) {
 
           <div className={styles.navSection}>
             <div className={styles.navHeader}>User Settings</div>
-            <NavItem label="My Account" active={true} />
+            <NavItem label="My Account" active={settingsTab === 'account'} onClick={() => setSettingsTab('account')} />
+            <NavItem label="Friends" active={settingsTab === 'friends'} onClick={() => setSettingsTab('friends')} badge={friendsData.incoming.length > 0 ? friendsData.incoming.length : undefined} />
             <NavItem label="Content & Social" />
             <NavItem label="Data & Privacy" />
             <NavItem label="Notifications" />
@@ -438,107 +504,200 @@ export default function UserSettings({ onClose }) {
       {/* Right Main Content */}
       <div className={styles.mainArea}>
         <div className={styles.contentWrapper}>
-          <h2 className={styles.pageTitle}>My Account</h2>
+          {settingsTab === 'account' && (
+            <>
+              <h2 className={styles.pageTitle}>My Account</h2>
 
-          <div className={styles.accountCard}>
-            <div className={styles.cardBanner}></div>
+              <div className={styles.accountCard}>
+                <div className={styles.cardBanner}></div>
 
-            <div className={styles.cardHeader}>
-              <div
-                className={styles.cardAvatarWrapper}
-                style={{
-                  background: '#5865f2',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontSize: '1.2rem',
-                  fontWeight: 700,
-                  position: 'relative',
-                  cursor: 'pointer',
-                  overflow: 'hidden',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  backgroundImage: auth.user?.avatarUrl ? `url(${auth.user.avatarUrl})` : 'none'
-                }}
-                onClick={() => avatarInputRef.current?.click()}
-                title="Change Avatar"
-              >
-                {!auth.user?.avatarUrl && currentUsername.charAt(0).toUpperCase()}
-                {avatarUploadLoading && <div style={{ position: 'absolute', background: 'rgba(0,0,0,0.5)', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>...</div>}
-                <input type="file" ref={avatarInputRef} onChange={handleAvatarSelect} style={{ display: "none" }} accept="image/*" />
-              </div>
+                <div className={styles.cardHeader}>
+                  <div
+                    className={styles.cardAvatarWrapper}
+                    style={{
+                      background: '#5865f2',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      fontSize: '1.2rem',
+                      fontWeight: 700,
+                      position: 'relative',
+                      cursor: 'pointer',
+                      overflow: 'hidden',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundImage: auth.user?.avatarUrl ? `url(${auth.user.avatarUrl})` : 'none'
+                    }}
+                    onClick={() => avatarInputRef.current?.click()}
+                    title="Change Avatar"
+                  >
+                    {!auth.user?.avatarUrl && currentUsername.charAt(0).toUpperCase()}
+                    {avatarUploadLoading && <div style={{ position: 'absolute', background: 'rgba(0,0,0,0.5)', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>...</div>}
+                    <input type="file" ref={avatarInputRef} onChange={handleAvatarSelect} style={{ display: "none" }} accept="image/*" />
+                  </div>
 
-              <div className={styles.cardUserInfo}>
-                <span className={styles.cardName}>{currentUsername}</span>
-              </div>
+                  <div className={styles.cardUserInfo}>
+                    <span className={styles.cardName}>{currentUsername}</span>
+                  </div>
 
-              <button className={styles.editProfileBtn}>Edit User Profile</button>
-            </div>
-
-            <div className={styles.infoBox}>
-              <div className={styles.infoRow}>
-                <div>
-                  <div className={styles.infoLabel}>Display Name</div>
-                  <div className={styles.infoValue}>{currentUsername}</div>
+                  <button className={styles.editProfileBtn}>Edit User Profile</button>
                 </div>
-                <button className={styles.editBtn} onClick={() => { setEditMode('username'); setEditValue(currentUsername); setEditError(''); setEditPassword(''); }}>Edit</button>
-              </div>
 
-              <div className={styles.infoRow}>
-                <div>
-                  <div className={styles.infoLabel}>Username</div>
-                  <div className={styles.infoValue}>{currentUsername}</div>
-                </div>
-                <button className={styles.editBtn} onClick={() => { setEditMode('username'); setEditValue(currentUsername); setEditError(''); setEditPassword(''); }}>Edit</button>
-              </div>
+                <div className={styles.infoBox}>
+                  <div className={styles.infoRow}>
+                    <div>
+                      <div className={styles.infoLabel}>Display Name</div>
+                      <div className={styles.infoValue}>{currentUsername}</div>
+                    </div>
+                    <button className={styles.editBtn} onClick={() => { setEditMode('username'); setEditValue(currentUsername); setEditError(''); setEditPassword(''); }}>Edit</button>
+                  </div>
 
-              <div className={styles.infoRow}>
-                <div>
-                  <div className={styles.infoLabel}>Email</div>
-                  <div className={styles.infoValue}>
-                    {showEmail ? currentEmail : maskedEmail}{' '}
-                    <span className={styles.revealText} onClick={() => setShowEmail(!showEmail)} style={{ cursor: 'pointer' }}>
-                      {showEmail ? 'Hide' : 'Reveal'}
-                    </span>
+                  <div className={styles.infoRow}>
+                    <div>
+                      <div className={styles.infoLabel}>Username</div>
+                      <div className={styles.infoValue}>{currentUsername}</div>
+                    </div>
+                    <button className={styles.editBtn} onClick={() => { setEditMode('username'); setEditValue(currentUsername); setEditError(''); setEditPassword(''); }}>Edit</button>
+                  </div>
+
+                  <div className={styles.infoRow}>
+                    <div>
+                      <div className={styles.infoLabel}>Email</div>
+                      <div className={styles.infoValue}>
+                        {showEmail ? currentEmail : maskedEmail}{' '}
+                        <span className={styles.revealText} onClick={() => setShowEmail(!showEmail)} style={{ cursor: 'pointer' }}>
+                          {showEmail ? 'Hide' : 'Reveal'}
+                        </span>
+                      </div>
+                    </div>
+                    <button className={styles.editBtn} onClick={() => { setEditMode('email'); setEditValue(currentEmail); setEditError(''); setEditPassword(''); }}>Edit</button>
+                  </div>
+
+                  <div className={styles.infoRow}>
+                    <div>
+                      <div className={styles.infoLabel}>Phone Number</div>
+                      <div className={styles.infoValue}>You haven't added a phone number yet.</div>
+                    </div>
+                    <button className={styles.editBtn}>Add</button>
                   </div>
                 </div>
-                <button className={styles.editBtn} onClick={() => { setEditMode('email'); setEditValue(currentEmail); setEditError(''); setEditPassword(''); }}>Edit</button>
               </div>
 
-              <div className={styles.infoRow}>
-                <div>
-                  <div className={styles.infoLabel}>Phone Number</div>
-                  <div className={styles.infoValue}>You haven't added a phone number yet.</div>
+              {/* Password and Authentication */}
+              <div className={styles.sectionContainer}>
+                <h2 className={styles.sectionTitle}>Password and Authentication</h2>
+                {hasPassword ? (
+                  <button className={styles.primaryBtn} onClick={() => { setShowPasswordModal(true); setPasswordError(""); }}>Change Password</button>
+                ) : (
+                  <button className={styles.primaryBtn} onClick={() => { setShowAddPasswordModal(true); setAddPwError(""); }}>Add Password</button>
+                )}
+              </div>
+
+              <div className={styles.sectionDivider}></div>
+
+              {/* Account Removal */}
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h3 className={styles.blockTitle}>Account Removal</h3>
+                <p className={styles.blockDesc}>
+                  Disabling your account means you can recover it at any time after taking this action.
+                </p>
+                <div className={styles.buttonGroup}>
+                  <button className={styles.dangerBtn}>Disable Account</button>
+                  <button className={styles.dangerGhostBtn} onClick={() => setShowDeleteConfirm(true)}>Delete Account</button>
                 </div>
-                <button className={styles.editBtn}>Add</button>
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
-          {/* Password and Authentication */}
-          <div className={styles.sectionContainer}>
-            <h2 className={styles.sectionTitle}>Password and Authentication</h2>
-            {hasPassword ? (
-              <button className={styles.primaryBtn} onClick={() => { setShowPasswordModal(true); setPasswordError(""); }}>Change Password</button>
-            ) : (
-              <button className={styles.primaryBtn} onClick={() => { setShowAddPasswordModal(true); setAddPwError(""); }}>Add Password</button>
-            )}
-          </div>
+          {/* ── Friends Tab ── */}
+          {settingsTab === 'friends' && (
+            <>
+              <h2 className={styles.pageTitle}>Friends</h2>
 
-          <div className={styles.sectionDivider}></div>
+              {/* Add Friend Section */}
+              <div className={styles.sectionContainer}>
+                <h2 className={styles.sectionTitle}>Add Friend</h2>
+                <p className={styles.blockDesc} style={{ marginBottom: '12px' }}>You can add friends with their LinkSphere username.</p>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    className={styles.inputField}
+                    placeholder="Enter a username"
+                    value={settingsFriendInput}
+                    onChange={(e) => setSettingsFriendInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSettingsSendRequest()}
+                    style={{ flex: 1 }}
+                  />
+                  <button className={styles.primaryBtn} onClick={handleSettingsSendRequest} disabled={!settingsFriendInput.trim()}>Send Request</button>
+                </div>
+                {settingsFriendMsg && (
+                  <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, background: settingsFriendStatus === 'success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', color: settingsFriendStatus === 'success' ? '#4ade80' : '#f87171', border: `1px solid ${settingsFriendStatus === 'success' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
+                    {settingsFriendMsg}
+                  </div>
+                )}
+              </div>
 
-          {/* Account Removal */}
-          <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
-            <h3 className={styles.blockTitle}>Account Removal</h3>
-            <p className={styles.blockDesc}>
-              Disabling your account means you can recover it at any time after taking this action.
-            </p>
-            <div className={styles.buttonGroup}>
-              <button className={styles.dangerBtn}>Disable Account</button>
-              <button className={styles.dangerGhostBtn} onClick={() => setShowDeleteConfirm(true)}>Delete Account</button>
-            </div>
-          </div>
+              {/* Pending Requests */}
+              {(friendsData.incoming.length > 0 || friendsData.outgoing.length > 0) && (
+                <div className={styles.sectionContainer}>
+                  <h2 className={styles.sectionTitle}>Pending Requests</h2>
+                  {friendsData.incoming.map(f => (
+                    <div key={`in-${f.id}`} className={styles.infoRow}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '0.8rem', backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                          {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className={styles.infoLabel}>{f.username}</div>
+                          <div className={styles.infoValue} style={{ fontSize: '11px' }}>Incoming request</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button className={styles.primaryBtn} style={{ padding: '4px 12px', fontSize: '12px' }} onClick={() => handleSettingsAccept(f.id)}>Accept</button>
+                        <button className={styles.dangerGhostBtn} style={{ padding: '4px 12px', fontSize: '12px' }} onClick={() => handleSettingsDecline(f.id)}>Decline</button>
+                      </div>
+                    </div>
+                  ))}
+                  {friendsData.outgoing.map(f => (
+                    <div key={`out-${f.id}`} className={styles.infoRow}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '0.8rem', backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                          {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className={styles.infoLabel}>{f.username}</div>
+                          <div className={styles.infoValue} style={{ fontSize: '11px' }}>Outgoing request</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Friend List */}
+              <div className={styles.sectionContainer}>
+                <h2 className={styles.sectionTitle}>All Friends — {friendsData.friends.length}</h2>
+                {friendsData.friends.length === 0 ? (
+                  <p className={styles.blockDesc}>You don't have any friends yet. Use the input above to send a friend request!</p>
+                ) : (
+                  friendsData.friends.map(f => (
+                    <div key={f.id} className={styles.infoRow}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '0.8rem', backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                          {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className={styles.infoLabel}>{f.username}</div>
+                        </div>
+                      </div>
+                      <button className={styles.dangerGhostBtn} style={{ padding: '4px 12px', fontSize: '12px' }} onClick={() => handleSettingsRemove(f.id)}>Remove</button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Close Escape Button */}

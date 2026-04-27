@@ -23,6 +23,7 @@ const {
     leaveServer,
     getChannelMessages,
     postMessage,
+    postCallStartEvent,
     getServerByInvite,
     joinByInvite,
 } = require("../controllers/serverController");
@@ -49,5 +50,6 @@ router.post("/:id/leave", verifyToken, leaveServer);
 // ── Messages ──────────────────────────────────────────────────────────────────
 router.get ("/:id/channels/:channelId/messages", verifyToken, getChannelMessages);
 router.post("/:id/channels/:channelId/messages", verifyToken, validate(postMessageSchema), postMessage);
+router.post("/:id/channels/:channelId/call-events", verifyToken, postCallStartEvent);
 
 module.exports = router;
