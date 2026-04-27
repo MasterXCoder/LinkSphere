@@ -727,39 +727,7 @@ export default function AppPage() {
                 )}
               </div>
             )}
-            <section className={styles.scrollSection}>
-              <div className={styles.categoryHeader}>
-                <span>Voice Channels</span>
-                {serverData?.ownerId === userId && (
-                  <button
-                    className={styles.addChannelBtn}
-                    onClick={() => { setNewChannelName(''); setIsChannelModalOpen(true); }}
-                    title="Create Voice Channel"
-                  >
-                    +
-                  </button>
-                )}
-              </div>
-              {channels.filter(ch => ch.type === "voice").map((ch) => (
-                <button
-                  key={ch.id}
-                  className={styles.channel}
-                  onClick={() => {
-                    const hasMembers = members.some(m => m.socketId);
-                    if (hasMembers) {
-                      setActiveChannel(ch.id);
-                    } else {
-                      alert('No members online to call');
-                    }
-                  }}
-                >
-                  <div className={styles.channelLeft}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z"/></svg>
-                    {ch.name}
-                  </div>
-                </button>
-              ))}
-            </section>
+
             <section className={styles.scrollSection}>
               <div className={styles.categoryHeader}>
                 <span>Text Channels</span>
