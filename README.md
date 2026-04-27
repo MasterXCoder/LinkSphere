@@ -1,131 +1,212 @@
-# LinkSphere — Setup Guide
+# <pre>  ██████╗ ██████╗ ███████╗██╗   ██╗    ██╗    ██╗ █████╗ ██╗     ██╗     ███████╗██████╗ </pre>
+<pre> ██╔════╝██╔═══██╗██╔════╝╚██╗ ██╔╝    ██║    ██║██╔══██╗██║     ██║     ██╔════╝██╔══██╗</pre>
+<pre> ██║    ██║   ██║█████╗   ╚████╔╝     ██║ █╗ ██║███████║██║     ██║     █████╗  ██████╔╝</pre>
+<pre> ██║    ██║   ██║██╔══╝    ╚██╔╝      ██║███╗██║██╔══██║██║     ██║     ██╔══╝  ██╔══██╗</pre>
+<pre> ╚██████╗╚██████╔╝██║        ██║       ╚███╔███╔╝██║  ██║███████╗███████╗███████╗██║  ██║</pre>
+<pre>  ╚═════╝ ╚═════╝ ╚═╝        ╚═╝        ╚══╝╚══╝ ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝</pre>
 
-LinkSphere is a scalable real-time communication platform inspired by Discord, built with Node.js, Express, and React.
+---
 
-## Project Structure
-```
-linksphere/
-├── server.js               ← Express entry point
-├── package.json            ← Root scripts + backend deps
-├── server/
-│   │
-│   ├── controllers/            # Business logic
-│   │   ├── userController.js
-│   │   └── serverController.js
-│   │
-│   ├── middleware/             # Custom middleware
-│   │   └── authMiddleware.js
-│   │
-│   ├── routes/                 # API route definitions
-│   │   ├── userRoutes.js
-│   │   └── serverRoutes.js
-│   │
-│   └── app.js                  # Express app configuration
-└── client/                 ← Vite + React frontend
-    └── src/
-        ├── App.jsx          ← React Router setup
-        ├── index.css        ← Global styles
-        ├── main.jsx         ← Entry point
-        ├── components/
-        │   ├── Navbar.jsx + Navbar.module.css
-        │   └── AuthForm.jsx + AuthForm.module.css
-        └── pages/
-            ├── Landing.jsx + Landing.module.css
-            ├── Login.jsx
-            ├── Signup.jsx
-            └── AppPage.jsx + AppPage.module.css
-```
+<p align="center">
+  <b>A scalable real-time communication platform inspired by Discord</b><br>
+  Built with Node.js • Express • React • MongoDB
+</p>
 
-## Install Dependencies
+---
 
-### 1. Backend (from root)
+## ✨ Features
+
+- 🔐 **Authentication** — Secure JWT-based auth with bcrypt password hashing
+- 🖼️ **Image Uploads** — Cloudinary integration for avatar and server icon uploads
+- 💬 **Real-time Messaging** — Channel-based messaging system
+- 🗂️ **Server Management** — Create, edit, and manage your own servers
+- 🔗 **Invite System** — Share servers with friends via invite codes
+- 👥 **Member Management** — Join servers, view members, leave anytime
+- 🎨 **Modern UI** — Discord-inspired dark theme interface
+- ⚡ **Hot Reload** — Vite + nodemon for lightning-fast development
+
+---
+
+## 🚀 Quick Start
+
 ```bash
+# Clone and install
+git clone https://github.com/yourusername/linksphere.git
+cd linksphere
+
+# Install backend dependencies
 npm install
-```
 
-### 2. Frontend (from /client)
-```bash
-cd client
-npm install react-router-dom
-```
+# Install frontend dependencies
+cd client && npm install && cd ..
 
-## Run
-
-Both server and client run simultaneously using `concurrently`:
-
-```bash
-# From root
+# Start development (both server + client)
 npm run dev
 ```
 
-- Backend → `http://localhost:3000` (nodemon, auto-restarts on changes)
-- Frontend → `http://localhost:5173` (Vite HMR)
+**That's it!** 🎉 Open `http://localhost:5173` in your browser.
 
-## API Routes
+---
 
-### User Routes
+## 🛠️ Tech Stack
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/users/signup` | Register a new user |
-| POST | `/api/users/login` | Log in a user |
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React, React Router, Vite, CSS Modules |
+| **Backend** | Node.js, Express, MongoDB, Mongoose |
+| **Auth** | JWT, bcrypt, Passport.js |
+| **Storage** | Cloudinary |
+| **Dev Tools** | concurrently, nodemon |
+
+---
+
+## 📁 Project Structure
+
+```
+linksphere/
+│
+├── server/                    # Express Backend
+│   ├── app.js                 # App configuration
+│   ├── server.js              # Entry point
+│   ├── config/
+│   │   └── passport.js        # Passport strategy
+│   ├── controllers/           # Business logic
+│   │   ├── userController.js
+│   │   └── serverController.js
+│   ├── database/
+│   │   └── db.js              # MongoDB connection
+│   ├── middleware/
+│   │   ├── authMiddleware.js  # JWT verification
+│   │   ├── validate.js       # Input validation
+│   │   └── errorMiddleware.js
+│   ├── models/                # Mongoose models
+│   │   ├── User.js
+│   │   ├── Server.js
+│   │   └── Message.js
+│   ├── routes/                # API routes
+│   │   ├��─ userRoutes.js
+│   │   ├── serverRoutes.js
+│   │   ├── authRoutes.js
+│   │   └── uploadRoutes.js
+│   └── utils/                 # Helpers
+│       ├── ApiError.js
+│       ├── cloudinaryHelper.js
+│       └── catchAsync.js
+│
+└── client/                    # React Frontend
+    ├── src/
+    │   ├── App.jsx            # Router setup
+    │   ├── main.jsx           # Entry
+    │   ├── context/
+    │   │   └── AuthContext.jsx
+    │   ├── components/
+    │   │   ├── Navbar.jsx
+    │   │   ├── Logo.jsx
+    │   │   ├── AuthForm.jsx
+    │   │   ├── CreateServerModal.jsx
+    │   │   ├── EditServerModal.jsx
+    │   │   ├── JoinServerModal.jsx
+    │   │   └── ProtectedRoute.jsx
+    │   └── pages/
+    │       ├── Landing.jsx
+    │       ├── Login.jsx
+    │       ├── Signup.jsx
+    │       ├── AppPage.jsx
+    │       ├── UserSettings.jsx
+    │       └── OAuthCallback.jsx
+    └── package.json
+```
+
+---
+
+## ⚙️ Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+PORT=3000
+MONGODB_URI=mongodb://localhost:27017/linksphere
+JWT_SECRET=your_super_secret_key
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+---
+
+## 🌐 API Endpoints
+
+### Users
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/users/signup` | Register new user |
+| POST | `/api/users/login` | Login user |
 | GET | `/api/users/:id` | Get user by ID |
-| PUT | `/api/users/:id` | Update user details |
-| DELETE | `/api/users/:id` | Delete user account |
+| PUT | `/api/users/:id` | Update user |
+| DELETE | `/api/users/:id` | Delete user |
+
+### Servers
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/servers` | Create server |
+| GET | `/api/servers/mine` | Get user's servers |
+| GET | `/api/servers/:id` | Get server |
+| PUT | `/api/servers/:id` | Update server |
+| DELETE | `/api/servers/:id` | Delete server |
+
+### Channels
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/servers/:id/channels` | Create channel |
+| DELETE | `/api/servers/:id/channels/:channelId` | Delete channel |
+
+### Messages
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/servers/:id/channels/:channelId/messages` | Get messages |
+| POST | `/api/servers/:id/channels/:channelId/messages` | Send message |
+
+### Invites
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/servers/invite/:code` | Get by invite code |
+| POST | `/api/servers/invite/:code/join` | Join via invite |
+
+### Membership
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/servers/:id/join` | Join server |
+| POST | `/api/servers/:id/leave` | Leave server |
+
+### Uploads
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/upload/image` | Upload image |
 
 ---
 
-### Server Routes
+## 📱 Pages
 
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/servers` | Create a new server |
-| GET | `/api/servers/mine` | Get servers created or joined by the user |
-| GET | `/api/servers/:id` | Get server details |
-| DELETE | `/api/servers/:id` | Delete a server |
-
----
-
-### Invite Routes
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/servers/invite/:code` | Get server using invite code |
-| POST | `/api/servers/invite/:code/join` | Join server using invite code |
-
----
-
-### Channel Routes
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/servers/:id/channels` | Create a new channel in a server |
-| DELETE | `/api/servers/:id/channels/:channelId` | Delete a channel |
-
----
-
-### Server Membership
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| POST | `/api/servers/:id/join` | Join a server |
-| POST | `/api/servers/:id/leave` | Leave a server |
-
----
-
-### Message Routes
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | `/api/servers/:id/channels/:channelId/messages` | Get messages from a channel |
-| POST | `/api/servers/:id/channels/:channelId/messages` | Send a message to a channel |
-
----
-
-## Pages
 | Route | Page |
 |-------|------|
-| / | Landing page with navbar + CTA |
-| /login | Login form |
-| /signup | Signup form |
-| /app | Discord-like app layout |
+| `/` | Landing page |
+| `/login` | Login |
+| `/signup` | Signup |
+| `/app` | Main app |
+| `/app/settings` | User settings |
+| `/oauth/callback` | OAuth callback |
+
+---
+
+## 🏃 Run Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server + client |
+| `npm start` | Start production server |
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ using the MERN stack</sub>
+</p>
