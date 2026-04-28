@@ -28,6 +28,14 @@ const messageSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  attachmentName: {
+    type: String,
+    default: null,
+  },
+  attachmentMimeType: {
+    type: String,
+    default: null,
+  },
   type: {
     type: String,
     enum: ["user", "system"],

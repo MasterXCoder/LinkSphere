@@ -849,6 +849,29 @@
   border: 1px solid var(--border);
 }
 
+.fileAttachmentLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  text-decoration: none;
+  max-width: 420px;
+}
+
+.fileAttachmentLink:hover {
+  background: var(--bg-hover);
+}
+
+.fileAttachmentLink span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* System message */
 .systemMsg {
   display: flex;
@@ -918,6 +941,20 @@
   max-height: 150px;
   border-radius: 8px;
   object-fit: contain;
+}
+
+.filePreviewRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  max-width: 320px;
+}
+
+.filePreviewName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cancelAttachmentBtn {

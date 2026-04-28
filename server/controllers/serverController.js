@@ -292,7 +292,7 @@ const getChannelMessages = catchAsync(async (req, res) => {
 const postMessage = catchAsync(async (req, res) => {
   const id = Number(req.params.id);
   const { channelId } = req.params;
-  const { content, attachmentUrl } = req.body;
+  const { content, attachmentUrl, attachmentName, attachmentMimeType } = req.body;
 
   // Note: content/attachmentUrl combo validated by Zod middleware (postMessageSchema)
 
@@ -310,6 +310,8 @@ const postMessage = catchAsync(async (req, res) => {
     authorName: req.user.username,
     content: content ? content.trim() : "",
     attachmentUrl: attachmentUrl || null,
+    attachmentName: attachmentName || null,
+    attachmentMimeType: attachmentMimeType || null,
     type: "user",
   });
 
