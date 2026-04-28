@@ -10,6 +10,7 @@ import styles from "./AppPage.module.css";
 import UserSettings from "./UserSettings";
 
 const API = "/api";
+const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
 // Status config — defined at module level so it's stable across renders
 const STATUSES = {
@@ -154,6 +155,11 @@ export default function AppPage() {
   const [callType, setCallType] = useState('audio');
   const [targetUser, setTargetUser] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
+  const isImageAttachment = (mimeType = "", url = "") => {
+    if (mimeType && mimeType.startsWith("image/")) return true;
+    return /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
+  };
+
 
   // Friend system state
   const [activeHomeTab, setActiveHomeTab] = useState('addFriend');
@@ -461,11 +467,13 @@ export default function AppPage() {
     try {
       setIsSending(true);
       let finalAttachmentUrl = null;
+      let finalAttachmentName = null;
+      let finalAttachmentMimeType = null;
 
       // If there's an attachment, upload it first
       if (attachmentFile) {
         const formData = new FormData();
-        formData.append("image", attachmentFile);
+        formData.append("attachment", attachmentFile);
 
         const uploadRes = await fetch(`${API}/upload`, {
           method: "POST",
@@ -485,6 +493,8 @@ export default function AppPage() {
 
         const uploadData = await uploadRes.json();
         finalAttachmentUrl = uploadData.url;
+        finalAttachmentName = uploadData.originalName || attachmentFile.name;
+        finalAttachmentMimeType = uploadData.mimeType || attachmentFile.type || null;
       }
 
       await fetch(
@@ -494,7 +504,9 @@ export default function AppPage() {
           headers: authHeaders(token),
           body: JSON.stringify({
             content: msgInput,
-            attachmentUrl: finalAttachmentUrl
+            attachmentUrl: finalAttachmentUrl,
+            attachmentName: finalAttachmentName || null,
+            attachmentMimeType: finalAttachmentMimeType || null,
           }),
         }
       );
@@ -552,14 +564,29 @@ export default function AppPage() {
   const handleAttachmentChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+        alert("File is too large. Max size is 10MB.");
+        e.target.value = null;
+        return;
+      }
+      if (attachmentPreview) {
+        URL.revokeObjectURL(attachmentPreview);
+      }
       setAttachmentFile(file);
-      setAttachmentPreview(URL.createObjectURL(file));
+      setAttachmentPreview(
+        file.type.startsWith("image/")
+          ? URL.createObjectURL(file)
+          : null
+      );
     }
     // reset input so the same file over and over triggers change
     e.target.value = null;
   };
 
   const cancelAttachment = () => {
+    if (attachmentPreview) {
+      URL.revokeObjectURL(attachmentPreview);
+    }
     setAttachmentFile(null);
     setAttachmentPreview(null);
   };
@@ -1224,7 +1251,19 @@ export default function AppPage() {
                           {msg.content && <p className={styles.msgBody}>{msg.content}</p>}
                           {msg.attachmentUrl && (
                             <div className={styles.msgAttachmentWrap}>
-                              <img src={msg.attachmentUrl} alt="attachment" className={styles.msgAttachment} />
+                              {isImageAttachment(msg.attachmentMimeType, msg.attachmentUrl) ? (
+                                <img src={msg.attachmentUrl} alt="attachment" className={styles.msgAttachment} />
+                              ) : (
+                                <a
+                                  href={msg.attachmentUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={styles.fileAttachmentLink}
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                                  <span>{msg.attachmentName || "Download attachment"}</span>
+                                </a>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1244,8 +1283,19 @@ export default function AppPage() {
                       </button>
                     </div>
                   )}
+                  {!attachmentPreview && attachmentFile && (
+                    <div className={styles.attachmentPreviewWrap}>
+                      <div className={styles.filePreviewRow}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                        <span className={styles.filePreviewName}>{attachmentFile.name}</span>
+                      </div>
+                      <button type="button" className={styles.cancelAttachmentBtn} onClick={cancelAttachment}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                      </button>
+                    </div>
+                  )}
                   <form className={styles.chatInputBar} onSubmit={sendMessage}>
-                    <input type="file" style={{ display: 'none' }} ref={fileInputRef} onChange={handleAttachmentChange} accept="image/*" />
+                    <input type="file" style={{ display: 'none' }} ref={fileInputRef} onChange={handleAttachmentChange} />
                     <button type="button" className={styles.addAttachmentBtn} onClick={() => fileInputRef.current?.click()} disabled={isSending}>
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
                     </button>
