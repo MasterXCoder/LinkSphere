@@ -166,6 +166,8 @@ export default function AppPage() {
   const [friendsData, setFriendsData] = useState({ friends: [], incoming: [], outgoing: [] });
   const [friendRequestStatus, setFriendRequestStatus] = useState('');
   const [friendRequestMsg, setFriendRequestMsg] = useState('');
+  const [selectedDmFriend, setSelectedDmFriend] = useState(null);
+  const [dmMessages, setDmMessages] = useState([]);
 
   // Sync ref
   useEffect(() => {
@@ -411,6 +413,16 @@ export default function AppPage() {
     }
   }, [activeServer, fetchServerData]);
 
+  // Reset DM panel when friend is no longer in friend list
+  useEffect(() => {
+    if (!selectedDmFriend) return;
+    const stillFriend = friendsData.friends.some((f) => f.id === selectedDmFriend.id);
+    if (!stillFriend) {
+      setSelectedDmFriend(null);
+      setDmMessages([]);
+    }
+  }, [friendsData.friends, selectedDmFriend]);
+
 
 
 
@@ -454,15 +466,39 @@ export default function AppPage() {
     }
   }, [fetchMessages, socket, activeChannel, activeServer]);
 
+  const fetchDmMessages = useCallback(async () => {
+    if (activeServer !== "home" || !selectedDmFriend?.id) return;
+    try {
+      const res = await fetch(`${API}/dm/${selectedDmFriend.id}/messages`, {
+        headers: authHeaders(token),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDmMessages(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch direct messages:", err);
+    }
+  }, [activeServer, selectedDmFriend, token]);
+
+  useEffect(() => {
+    if (activeServer !== "home" || !selectedDmFriend?.id) return;
+    fetchDmMessages();
+    const interval = setInterval(fetchDmMessages, 3000);
+    return () => clearInterval(interval);
+  }, [activeServer, selectedDmFriend, fetchDmMessages]);
+
   // ── Auto-scroll chat ──
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, dmMessages]);
 
   // ── Send message ──
   const sendMessage = async (e) => {
     e.preventDefault();
-    if ((!msgInput.trim() && !attachmentFile) || !activeChannel || isSending) return;
+    const isDmView = activeServer === "home" && !!selectedDmFriend?.id;
+    if ((!msgInput.trim() && !attachmentFile) || isSending) return;
+    if (!isDmView && !activeChannel) return;
 
     try {
       setIsSending(true);
@@ -497,9 +533,8 @@ export default function AppPage() {
         finalAttachmentMimeType = uploadData.mimeType || attachmentFile.type || null;
       }
 
-      await fetch(
-        `${API}/servers/${activeServer}/channels/${activeChannel}/messages`,
-        {
+      if (isDmView) {
+        await fetch(`${API}/dm/${selectedDmFriend.id}/messages`, {
           method: "POST",
           headers: authHeaders(token),
           body: JSON.stringify({
@@ -508,8 +543,23 @@ export default function AppPage() {
             attachmentName: finalAttachmentName || null,
             attachmentMimeType: finalAttachmentMimeType || null,
           }),
-        }
-      );
+        });
+        fetchDmMessages();
+      } else {
+        await fetch(
+          `${API}/servers/${activeServer}/channels/${activeChannel}/messages`,
+          {
+            method: "POST",
+            headers: authHeaders(token),
+            body: JSON.stringify({
+              content: msgInput,
+              attachmentUrl: finalAttachmentUrl,
+              attachmentName: finalAttachmentName || null,
+              attachmentMimeType: finalAttachmentMimeType || null,
+            }),
+          }
+        );
+      }
       setMsgInput("");
       cancelAttachment();
     } catch (err) {
@@ -517,6 +567,13 @@ export default function AppPage() {
     } finally {
       setIsSending(false);
     }
+  };
+
+  const openFriendDm = (friend) => {
+    setSelectedDmFriend(friend);
+    setActiveHomeTab("all");
+    setMsgInput("");
+    cancelAttachment();
   };
 
   // ── Voice/Video Call Functions ──
@@ -873,11 +930,25 @@ export default function AppPage() {
                 <span>Direct Messages</span>
                 <button className={styles.addDmBtn}>+</button>
               </div>
-              {[1, 2, 3, 4, 5, 6].map(i => (
-                <div key={i} className={styles.dmPlaceholder}>
-                  <div className={styles.dmAvatarGhost}></div>
-                  <div className={styles.dmNameGhost}></div>
-                </div>
+              {friendsData.friends.map((friend) => (
+                <button
+                  key={friend.id}
+                  type="button"
+                  className={`${styles.dmPlaceholder} ${selectedDmFriend?.id === friend.id ? styles.activeNavItem : ""}`}
+                  onClick={() => openFriendDm(friend)}
+                >
+                  <div
+                    className={styles.dmAvatarGhost}
+                    style={{
+                      backgroundImage: friend.avatarUrl ? `url(${friend.avatarUrl})` : "none",
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }}
+                  >
+                    {!friend.avatarUrl ? friend.username.charAt(0).toUpperCase() : null}
+                  </div>
+                  <div className={styles.friendName}>{friend.username}</div>
+                </button>
               ))}
             </div>
           </>
@@ -979,19 +1050,189 @@ export default function AppPage() {
             <header className={styles.topHeader}>
               <div className={styles.headerLeft}>
                 <div className={styles.headerTitle}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v2h20v-2c0-3.33-6.67-5-10-5z" /></svg>
-                  Friends
+                  {selectedDmFriend ? (
+                    <>
+                      <button className={styles.tabBtn} onClick={() => setSelectedDmFriend(null)}>Back</button>
+                      <span>@ {selectedDmFriend.username}</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v2h20v-2c0-3.33-6.67-5-10-5z" /></svg>
+                      Friends
+                    </>
+                  )}
                 </div>
-                <div className={styles.headerDivider}></div>
-                <div className={styles.headerTabs}>
-                  <button className={`${styles.tabBtn} ${activeHomeTab === 'online' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('online')}>Online</button>
-                  <button className={`${styles.tabBtn} ${activeHomeTab === 'all' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('all')}>All</button>
-                  <button className={`${styles.tabBtn} ${activeHomeTab === 'pending' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('pending')}>Pending{friendsData.incoming.length > 0 && <span className={styles.pendingBadge}>{friendsData.incoming.length}</span>}</button>
-                  <button className={`${styles.tabBtn} ${activeHomeTab === 'addFriend' ? styles.activeTabBtn : ''}`} onClick={() => { setActiveHomeTab('addFriend'); setFriendRequestMsg(''); }}>Add Friend</button>
-                </div>
+                {!selectedDmFriend && (
+                  <>
+                    <div className={styles.headerDivider}></div>
+                    <div className={styles.headerTabs}>
+                      <button className={`${styles.tabBtn} ${activeHomeTab === 'online' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('online')}>Online</button>
+                      <button className={`${styles.tabBtn} ${activeHomeTab === 'all' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('all')}>All</button>
+                      <button className={`${styles.tabBtn} ${activeHomeTab === 'pending' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('pending')}>Pending{friendsData.incoming.length > 0 && <span className={styles.pendingBadge}>{friendsData.incoming.length}</span>}</button>
+                      <button className={`${styles.tabBtn} ${activeHomeTab === 'addFriend' ? styles.activeTabBtn : ''}`} onClick={() => { setActiveHomeTab('addFriend'); setFriendRequestMsg(''); }}>Add Friend</button>
+                    </div>
+                  </>
+                )}
               </div>
             </header>
             <div className={styles.friendsLayout}>
+              {selectedDmFriend ? (
+                <>
+                  <div className={styles.chatArea}>
+                    <div className={styles.messageList}>
+                      {dmMessages.length === 0 && (
+                        <div className={styles.welcomeMsg}>
+                          <div className={styles.welcomeHash}>@</div>
+                          <h2 className={styles.welcomeTitle}>{selectedDmFriend.username}</h2>
+                          <p className={styles.welcomeDesc}>This is the beginning of your direct message history.</p>
+                        </div>
+                      )}
+                      {dmMessages.map((msg) => {
+                        const isOwn = msg.senderId === userId;
+                        return (
+                          <div key={msg.id} className={styles.message}>
+                            <div className={styles.msgAvatarCircle} style={{
+                              background: isOwn ? '#5865f2' : '#23a559',
+                              backgroundImage: !isOwn && selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : (isOwn && auth.user?.avatarUrl ? `url(${auth.user.avatarUrl})` : 'none'),
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              color: (!isOwn && selectedDmFriend.avatarUrl) || (isOwn && auth.user?.avatarUrl) ? 'transparent' : 'inherit'
+                            }}>
+                              {isOwn
+                                ? (!auth.user?.avatarUrl && username.charAt(0).toUpperCase())
+                                : (!selectedDmFriend.avatarUrl && selectedDmFriend.username.charAt(0).toUpperCase())}
+                            </div>
+                            <div className={styles.msgContent}>
+                              <div className={styles.msgHeader}>
+                                <span className={styles.msgAuthor} style={{ color: isOwn ? '#949cf7' : '#57f287' }}>
+                                  {isOwn ? username : selectedDmFriend.username}
+                                </span>
+                                <span className={styles.msgTimestamp}>
+                                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              {msg.content && <p className={styles.msgBody}>{msg.content}</p>}
+                              {msg.attachmentUrl && (
+                                <div className={styles.msgAttachmentWrap}>
+                                  {isImageAttachment(msg.attachmentMimeType, msg.attachmentUrl) ? (
+                                    <img src={msg.attachmentUrl} alt="attachment" className={styles.msgAttachment} />
+                                  ) : (
+                                    <a
+                                      href={msg.attachmentUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className={styles.fileAttachmentLink}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                                      <span>{msg.attachmentName || "Download attachment"}</span>
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    <div className={styles.chatInputContainer}>
+                      {attachmentPreview && (
+                        <div className={styles.attachmentPreviewWrap}>
+                          <img src={attachmentPreview} alt="preview" className={styles.attachmentPreviewImg} />
+                          <button type="button" className={styles.cancelAttachmentBtn} onClick={cancelAttachment}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                          </button>
+                        </div>
+                      )}
+                      {!attachmentPreview && attachmentFile && (
+                        <div className={styles.attachmentPreviewWrap}>
+                          <div className={styles.filePreviewRow}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            <span className={styles.filePreviewName}>{attachmentFile.name}</span>
+                          </div>
+                          <button type="button" className={styles.cancelAttachmentBtn} onClick={cancelAttachment}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                          </button>
+                        </div>
+                      )}
+                      <form className={styles.chatInputBar} onSubmit={sendMessage}>
+                        <input type="file" style={{ display: 'none' }} ref={fileInputRef} onChange={handleAttachmentChange} />
+                        <button type="button" className={styles.addAttachmentBtn} onClick={() => fileInputRef.current?.click()} disabled={isSending}>
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                        </button>
+                        <input
+                          type="text"
+                          className={styles.chatInput}
+                          placeholder={`Message @${selectedDmFriend.username}`}
+                          value={msgInput}
+                          onChange={(e) => setMsgInput(e.target.value)}
+                          disabled={isSending}
+                        />
+                        <button type="submit" className={styles.sendBtn} disabled={(!msgInput.trim() && !attachmentFile) || isSending}>
+                          {isSending ? (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.spinning}><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                          ) : (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                          )}
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+
+                  <aside className={styles.membersSidebar}>
+                    <div className={styles.membersHeader}>Direct Message</div>
+                    <div className={styles.memberItem}>
+                      <div className={styles.memberAvatarWrap}>
+                        <div className={styles.memberAvatar} style={{
+                          backgroundImage: selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : 'none',
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          color: selectedDmFriend.avatarUrl ? 'transparent' : 'inherit'
+                        }}>
+                          {!selectedDmFriend.avatarUrl && selectedDmFriend.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div
+                          className={styles.memberDot}
+                          style={{ background: onlineUsers[selectedDmFriend.id] ? '#23a559' : '#80848e' }}
+                        ></div>
+                      </div>
+                      <span className={styles.memberName}>{selectedDmFriend.username}</span>
+                      <div className={styles.memberActions}>
+                        <button
+                          className={styles.callBtn}
+                          onClick={() => {
+                            if (!onlineUsers[selectedDmFriend.id]) {
+                              alert('User is not online');
+                              return;
+                            }
+                            startCall({ ...selectedDmFriend, socketId: onlineUsers[selectedDmFriend.id] }, 'audio');
+                          }}
+                          title={onlineUsers[selectedDmFriend.id] ? "Audio call" : "User offline"}
+                          disabled={!onlineUsers[selectedDmFriend.id]}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z"/></svg>
+                        </button>
+                        <button
+                          className={styles.callBtn}
+                          onClick={() => {
+                            if (!onlineUsers[selectedDmFriend.id]) {
+                              alert('User is not online');
+                              return;
+                            }
+                            startCall({ ...selectedDmFriend, socketId: onlineUsers[selectedDmFriend.id] }, 'video');
+                          }}
+                          title={onlineUsers[selectedDmFriend.id] ? "Video call" : "User offline"}
+                          disabled={!onlineUsers[selectedDmFriend.id]}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </aside>
+                </>
+              ) : (
+              <>
               <div className={styles.friendsMain}>
                 {/* ── Add Friend Tab ── */}
                 {activeHomeTab === 'addFriend' && (
@@ -1058,7 +1299,7 @@ export default function AppPage() {
                             </div>
                           </div>
                           <div className={styles.friendRowActions}>
-                            <button className={styles.friendActionBtn} title="Message"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
+                            <button className={styles.friendActionBtn} title="Message" onClick={() => openFriendDm(f)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
                             <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg></button>
                           </div>
                         </div>
@@ -1092,7 +1333,7 @@ export default function AppPage() {
                             </div>
                           </div>
                           <div className={styles.friendRowActions}>
-                            <button className={styles.friendActionBtn} title="Message"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
+                            <button className={styles.friendActionBtn} title="Message" onClick={() => openFriendDm(f)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
                             <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg></button>
                           </div>
                         </div>
@@ -1179,6 +1420,8 @@ export default function AppPage() {
                   </div>
                 )}
               </aside>
+              </>
+              )}
             </div>
           </>
         ) : (

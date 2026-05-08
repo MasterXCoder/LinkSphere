@@ -306,6 +306,18 @@
   gap: 10px;
   padding: 6px 12px;
   margin: 1px 8px;
+  width: calc(100% - 16px);
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.dmPlaceholder:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .dmAvatarGhost {
@@ -313,6 +325,13 @@
   height: 32px;
   border-radius: 10px;
   background: var(--bg-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .dmNameGhost {
