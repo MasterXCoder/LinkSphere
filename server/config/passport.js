@@ -25,7 +25,7 @@ passport.use(
         if (existingEmailUser) {
           // Link Google account to existing user (also sync Google photo if they have no avatar)
           existingEmailUser.googleId = profile.id;
-          const googlePhoto = profile.photos?.[0]?.value || null;
+          const googlePhoto = profile.photos?.[0]?.value || profile._json?.picture || null;
           if (googlePhoto && !existingEmailUser.avatarUrl) {
             existingEmailUser.avatarUrl = googlePhoto;
           }
@@ -34,7 +34,7 @@ passport.use(
         }
 
         // Create a new user from Google profile
-        const googlePhoto = profile.photos?.[0]?.value || null;
+        const googlePhoto = profile.photos?.[0]?.value || profile._json?.picture || null;
         const newUser = new User({
           username: profile.displayName || profile.name?.givenName || "User",
           email: email,

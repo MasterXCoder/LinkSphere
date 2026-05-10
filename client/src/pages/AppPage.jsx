@@ -7,7 +7,10 @@ import EditServerModal from '../components/EditServerModal';
 import Logo from '../components/Logo';
 import CallModal from '../components/CallModal';
 import styles from "./AppPage.module.css";
+import callStyles from "../components/CallModal.module.css";
 import UserSettings from "./UserSettings";
+import useVoiceChannel from '../hooks/useVoiceChannel';
+import { Mic, MicOff, PhoneOff, Video, VideoOff, Monitor, MonitorOff, Phone } from 'lucide-react';
 
 const API = "/api";
 
@@ -53,13 +56,15 @@ export default function AppPage() {
       setSocket(newSocket);
 
       // Call events
-      newSocket.on("call-incoming", ({ signal, from, callType: incomingCallType, callerName }) => {
+      newSocket.on("call-incoming", ({ signal, from, callType: incomingCallType, callerName, callerAvatar, isVoiceChannel }) => {
+        if (isVoiceChannel) return; // Handled by useVoiceChannel hook
         const members = serverDataRef.current?.membersData || [];
         const caller = members.find(m => m.socketId === from);
         setTargetUser({ 
           id: caller?.id,
           socketId: from, 
-          username: caller?.username || callerName || 'Unknown' 
+          username: caller?.username || callerName || 'Unknown',
+          avatarUrl: caller?.avatarUrl || callerAvatar
         });
         setIncomingCall(signal);
         setCallType(incomingCallType || 'audio');
@@ -107,6 +112,14 @@ export default function AppPage() {
         });
       });
 
+      newSocket.on("voice-users-update", ({ channelId, users }) => {
+        setVoiceUsers(prev => ({ ...prev, [channelId]: users }));
+      });
+
+      newSocket.on("force-disconnect-voice", () => {
+        setJoinedVoiceChannel(null);
+      });
+
       return () => newSocket.close();
     }
   }, [token]);
@@ -132,6 +145,10 @@ export default function AppPage() {
   // Channel Creation State
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelType, setNewChannelType] = useState("text");
+
+  const [voiceUsers, setVoiceUsers] = useState({});
+  const [joinedVoiceChannel, setJoinedVoiceChannel] = useState(null);
 
   const [showServerMenu, setShowServerMenu] = useState(false);
   const [toast, setToast] = useState("");
@@ -154,6 +171,9 @@ export default function AppPage() {
   const [callType, setCallType] = useState('audio');
   const [targetUser, setTargetUser] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
+
+  // Use Voice Channel Hook
+  const { remoteStreams, localStream, speakingUsers, isVideoOn, isScreenSharing, toggleVideo, toggleScreenShare } = useVoiceChannel(socket, joinedVoiceChannel, isMuted, auth?.user);
 
   // Friend system state
   const [activeHomeTab, setActiveHomeTab] = useState('addFriend');
@@ -293,11 +313,12 @@ export default function AppPage() {
       const res = await fetch(`${API}/servers/${activeServer}/channels`, {
         method: "POST",
         headers: authHeaders(token),
-        body: JSON.stringify({ name: newChannelName, type: "text" }),
+        body: JSON.stringify({ name: newChannelName, type: newChannelType }),
       });
 
       if (res.ok) {
         setNewChannelName("");
+        setNewChannelType("text");
         setIsChannelModalOpen(false);
         // Re-fetch server data to show the new channel in list
         const resData = await fetch(`${API}/servers/${activeServer}`, { headers: authHeaders(token) });
@@ -346,6 +367,23 @@ export default function AppPage() {
     }
   };
 
+  const handleJoinVoiceChannel = (channelId) => {
+    if (isCallModalOpen) {
+      alert('Please end your current private call before joining a voice channel.');
+      return;
+    }
+    if (joinedVoiceChannel) {
+      socket?.emit("leave-voice", { channelId: joinedVoiceChannel });
+    }
+    setJoinedVoiceChannel(channelId);
+  };
+
+  const handleDisconnectVoice = () => {
+    if (joinedVoiceChannel) {
+      socket?.emit("leave-voice", { channelId: joinedVoiceChannel });
+      setJoinedVoiceChannel(null);
+    }
+  };
 
   // ── Fetch user's servers ──
   const fetchServers = useCallback(async () => {
@@ -533,6 +571,12 @@ export default function AppPage() {
       alert('Cannot call yourself');
       return;
     }
+    
+    // EXCLUSIVITY: Disconnect voice channel if starting private call
+    if (joinedVoiceChannel) {
+      handleDisconnectVoice();
+    }
+
     await logCallStartEvent(type);
     setTargetUser(targetMember);
     setCallType(type);
@@ -896,8 +940,8 @@ export default function AppPage() {
                 {serverData?.ownerId === userId && (
                   <button
                     className={styles.addChannelBtn}
-                    onClick={() => setIsChannelModalOpen(true)}
-                    title="Create Channel"
+                    onClick={() => { setIsChannelModalOpen(true); setNewChannelType("text"); }}
+                    title="Create Text Channel"
                   >
                     +
                   </button>
@@ -931,8 +975,125 @@ export default function AppPage() {
                 </button>
               ))}
 
+              <div className={styles.categoryHeader} style={{ marginTop: '16px' }}>
+                <span>Voice Channels</span>
+                {/* NEW: Add Channel Button - only for server owner */}
+                {serverData?.ownerId === userId && (
+                  <button
+                    className={styles.addChannelBtn}
+                    onClick={() => { setIsChannelModalOpen(true); setNewChannelType("voice"); }}
+                    title="Create Voice Channel"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
+              {channels.filter(ch => ch.type === "voice").map((ch) => (
+                <div key={ch.id}>
+                  <button
+                    className={`${styles.channel} ${activeChannel === ch.id ? styles.activeChannel : ""}`}
+                    onClick={() => setActiveChannel(ch.id)}
+                  >
+                  <div className={styles.channelLeft}>
+                    <span className={styles.hash}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                    </span>
+                    {ch.name}
+                  </div>
+                  <div className={styles.channelRight}>
+                    {/* Open Chat (Speech Bubble) */}
+                    <svg
+                      onClick={(e) => { e.stopPropagation(); setActiveChannel(ch.id); }}
+                      className={styles.channelActionIcon}
+                      width="16" height="16" viewBox="0 0 24 24" fill="currentColor"
+                      title="Open Chat"
+                    >
+                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                    </svg>
+
+                    {/* Create Invite (Person +) */}
+                    <svg
+                      onClick={(e) => { e.stopPropagation(); handleCopyInvite(); }}
+                      className={styles.channelActionIcon}
+                      width="16" height="16" viewBox="0 0 24 24" fill="currentColor"
+                      title="Create Invite"
+                    >
+                      <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+
+                    {/* Delete Channel - Only for Owner */}
+                    {serverData?.ownerId === userId && (
+                      <svg
+                        onClick={(e) => handleDeleteChannel(e, ch.id)}
+                        className={styles.channelDeleteIcon}
+                        width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        title="Delete Channel"
+                      >
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                      </svg>
+                    )}
+                  </div>
+                </button>
+                {/* Voice Users List */}
+                {(voiceUsers[ch.id] || []).map((u, i) => (
+                  <div key={`vu-${u.id || i}`} className={styles.voiceUserRow}>
+                    <div className={styles.voiceUserAvatar} style={{
+                       border: speakingUsers[u.socketId] ? '2px solid #57f287' : 'none',
+                       backgroundImage: u.avatarUrl ? `url(${u.avatarUrl})` : 'none',
+                       backgroundSize: 'cover',
+                       backgroundPosition: 'center',
+                       color: u.avatarUrl ? 'transparent' : 'inherit' 
+                    }}>
+                      {!u.avatarUrl && (u.username?.charAt(0).toUpperCase() || '?')}
+                    </div>
+                    <span className={styles.voiceUserName}>{u.username || 'User'}</span>
+                  </div>
+                ))}
+              </div>
+              ))}
+
             </section>
           </>
+        )}
+        {/* Voice Connected Panel (when joined) */}
+        {joinedVoiceChannel && (
+          <div className={callStyles.voiceConnectedPanel} style={{ position: 'static', width: '100%', borderRadius: 0, borderBottom: '1px solid var(--bg-deep)' }}>
+            <div className={callStyles.voiceConnectedHeader}>
+              <div className={callStyles.voiceConnectedHeaderLeft} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className={callStyles.voiceConnectedSignalBox}>
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                    <path d="M11 2.008C11 1.452 11.448 1 12 1c5.523 0 10 4.477 10 10s-4.477 10-10 10c-.552 0-1-.448-1-1v-1.008a8.001 8.001 0 0 1-7-7.992V11c0-.552.448-1 1-1h1.008a6.001 6.001 0 0 0 5.992 5.992V17c0 .552.448 1 1 1a4 4 0 0 0 4-4c0-.552-.448-1-1-1h-1.008a2.001 2.001 0 0 1-1.992-1.992V11c0-.552.448-1 1-1A4 4 0 0 0 11 14v1.008zM12 4a6 6 0 0 1 6 6h-2a4 4 0 0 0-4-4V4zM4.27 3.518A9.965 9.965 0 0 0 2 11v2a9.965 9.965 0 0 0 2.27 6.482l1.414-1.414A7.971 7.971 0 0 1 4 13v-2c0-1.84.62-3.535 1.684-4.896L4.27 3.518z" />
+                  </svg>
+                </div>
+                <div className={callStyles.voiceConnectedText}>
+                  <div className={callStyles.voiceConnectedStatus}>Voice Connected</div>
+                  <div className={callStyles.voiceConnectedChannel}>
+                    {serverData?.name || 'Server'} / {channels.find(c => c.id === joinedVoiceChannel)?.name}
+                  </div>
+                </div>
+              </div>
+              <div className={callStyles.voiceConnectedHeaderRight}>
+                <button className={callStyles.disconnectBtn} onClick={handleDisconnectVoice} title="Disconnect">
+                  <PhoneOff size={20} />
+                </button>
+              </div>
+            </div>
+            <div className={callStyles.voiceConnectedActions}>
+              <button className={`${callStyles.panelBtn} ${isMuted ? callStyles.active : ''}`} onClick={() => setIsMuted(!isMuted)} title={isMuted ? "Unmute" : "Mute"}>
+                {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+              </button>
+              <button className={`${callStyles.panelBtn} ${isDeafened ? callStyles.active : ''}`} onClick={() => setIsDeafened(!isDeafened)} title={isDeafened ? "Undeafen" : "Deafen"}>
+                {isDeafened ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.9 13.5a10.02 10.02 0 0 0-2.43-8.83M5.1 10.5A10 10 0 0 0 12 22"></path><path d="M9 18a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3"></path><path d="M15 12a3 3 0 0 1 3 3v2.85"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+                )}
+              </button>
+            </div>
+          </div>
         )}
         <div id="voice-controls-portal"></div>
         <UserInfoBar />
@@ -1158,7 +1319,11 @@ export default function AppPage() {
           <>
             <header className={styles.topHeader}>
               <div className={styles.headerLeft}>
-                <span className={styles.hash} style={{ marginRight: 8 }}>#</span>
+                <span className={styles.hash} style={{ marginRight: 8 }}>
+                  {activeChannelObj?.type === 'voice' ? (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                  ) : '#'}
+                </span>
                 <span className={styles.headerTitle}>{activeChannelName}</span>
               </div>
               <div className={styles.headerRight}>
@@ -1169,6 +1334,117 @@ export default function AppPage() {
               </div>
             </header>
 
+            {activeChannelObj?.type === "voice" ? (
+              joinedVoiceChannel === activeChannel ? (
+                <div className={callStyles.mainVideoPortal} style={{ position: 'relative', height: '100%' }}>
+                  <div className={callStyles.callGrid}>
+                    {/* Local Tile */}
+                    <div className={`${callStyles.gridTile} ${speakingUsers[socket?.id] ? callStyles.isSpeakingVideo : ''}`}>
+                      {isVideoOn || isScreenSharing ? (
+                        <video
+                          ref={el => { if (el && el.srcObject !== localStream) el.srcObject = localStream; }}
+                          autoPlay
+                          playsInline
+                          muted
+                          className={callStyles.remoteVideo}
+                          style={isScreenSharing ? { objectFit: 'contain' } : { transform: 'scaleX(-1)' }}
+                        />
+                      ) : (
+                        <div className={`${callStyles.tileAvatar} ${speakingUsers[socket?.id] ? callStyles.isSpeaking : ''}`} style={user?.avatarUrl ? { backgroundImage: `url(${user.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
+                          {!user?.avatarUrl && (user?.username?.charAt(0).toUpperCase() || '?')}
+                        </div>
+                      )}
+                      {!isVideoOn && !isScreenSharing && (
+                        <div className={callStyles.waitingOverlayAudio}>
+                          <span>Voice Connected</span>
+                        </div>
+                      )}
+                      <div className={callStyles.tileName} style={{ display: 'flex', alignItems: 'center' }}>
+                        {user?.username || 'You'} (You)
+                        {isMuted && <MicOff size={14} style={{ marginLeft: 6, color: '#f23f43' }} />}
+                      </div>
+                    </div>
+                    {/* Remote Tiles */}
+                    {(voiceUsers[activeChannel] || []).filter(u => u.id !== userId).map(u => {
+                      const remoteStream = remoteStreams[u.socketId];
+                      const activeVideoTracks = remoteStream ? remoteStream.getVideoTracks().filter(t => t.readyState === 'live' && !t.muted) : [];
+                      const hasVideo = activeVideoTracks.length > 0;
+                      return (
+                        <div key={u.id} className={`${callStyles.gridTile} ${speakingUsers[u.socketId] ? callStyles.isSpeakingVideo : ''}`}>
+                          {hasVideo ? (
+                            <video
+                              ref={el => { if (el && el.srcObject !== remoteStream) el.srcObject = remoteStream; }}
+                              autoPlay
+                              playsInline
+                              muted
+                              className={callStyles.remoteVideo}
+                            />
+                          ) : (
+                            <div className={`${callStyles.tileAvatar} ${speakingUsers[u.socketId] ? callStyles.isSpeaking : ''}`} style={u.avatarUrl ? { backgroundImage: `url(${u.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
+                              {!u.avatarUrl && (u.username?.charAt(0).toUpperCase() || '?')}
+                            </div>
+                          )}
+                          <div className={callStyles.tileName} style={{ display: 'flex', alignItems: 'center' }}>
+                            {u.username}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className={callStyles.bottomControls}>
+                    <div className={callStyles.controlGroup}>
+                      <button className={`${callStyles.controlBtn} ${isMuted ? callStyles.danger : ''}`} onClick={() => setIsMuted(!isMuted)} title={isMuted ? "Unmute" : "Mute"}>
+                        {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+                      </button>
+                      <button className={`${callStyles.controlBtn} ${!isVideoOn ? callStyles.danger : ''}`} onClick={toggleVideo} title="Camera">
+                        {!isVideoOn ? <VideoOff size={20} /> : <Video size={20} />}
+                      </button>
+                    </div>
+
+                    <div className={callStyles.controlGroup}>
+                      <button className={`${callStyles.controlBtn} ${isScreenSharing ? callStyles.active : ''}`} onClick={toggleScreenShare} title="Share Your Screen">
+                        {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
+                      </button>
+                      <button className={`${callStyles.controlBtn} ${isDeafened ? callStyles.danger : ''}`} onClick={() => setIsDeafened(!isDeafened)} title={isDeafened ? "Undeafen" : "Deafen"}>
+                        {isDeafened ? (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.9 13.5a10.02 10.02 0 0 0-2.43-8.83M5.1 10.5A10 10 0 0 0 12 22"></path><path d="M9 18a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3"></path><path d="M15 12a3 3 0 0 1 3 3v2.85"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+                        )}
+                      </button>
+                    </div>
+
+                    <button className={`${callStyles.controlBtn} ${callStyles.endCallBtnBig}`} onClick={handleDisconnectVoice} title="Disconnect">
+                      <PhoneOff size={20} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.voiceChannelMainUI}>
+                  <div className={styles.starsOverlay}></div>
+                  <div className={styles.voiceChannelCenter}>
+                    <div className={styles.voiceChannelAvatars}>
+                      {(voiceUsers[activeChannel] || []).length > 0 && (
+                        (voiceUsers[activeChannel] || []).map((u, i) => (
+                          <div key={u.id || i} className={styles.voiceChannelAvatarLarge} style={u.avatarUrl ? { backgroundImage: `url(${u.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
+                            {!u.avatarUrl && (u.username?.charAt(0).toUpperCase() || '?')}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <h2 className={styles.voiceChannelName}>{activeChannelName}</h2>
+                    {(voiceUsers[activeChannel] || []).length > 0 ? (
+                      <p className={styles.voiceChannelSubtitle}>
+                        <strong style={{ color: 'var(--text-primary)' }}>{(voiceUsers[activeChannel] || []).map(u => u.username).join(", ")}</strong> {(voiceUsers[activeChannel] || []).length === 1 ? 'is' : 'are'} currently in voice
+                      </p>
+                    ) : (
+                      <p className={styles.voiceChannelSubtitle}>No one is currently in voice</p>
+                    )}
+                    <button className={styles.joinVoiceBtn} onClick={() => handleJoinVoiceChannel(activeChannel)}>Join Voice</button>
+                  </div>
+                </div>
+              )
+            ) : (
             <div className={styles.chatLayout}>
               {/* Messages area */}
               <div className={styles.chatArea}>
@@ -1333,11 +1609,22 @@ export default function AppPage() {
                 ))}
               </aside>
             </div>
+            )}
           </>
         )}
       </main>
 
       {showSettings && <UserSettings onClose={() => setShowSettings(false)} />}
+
+      {/* VOICE CHANNEL REMOTE AUDIO */}
+      {Object.entries(remoteStreams).map(([socketId, stream]) => (
+        <audio
+          key={socketId}
+          autoPlay
+          ref={el => { if (el && el.srcObject !== stream) el.srcObject = stream; }}
+          muted={isDeafened}
+        />
+      ))}
 
       {/* CALL MODAL */}
       {isCallModalOpen && (
@@ -1376,17 +1663,44 @@ export default function AppPage() {
       {isChannelModalOpen && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
-            <h3>Create Channel</h3>
+            <h3 style={{ marginBottom: '24px' }}>Create Channel</h3>
             <form onSubmit={handleCreateChannel}>
 
-              <input
-                type="text"
-                placeholder="new-channel"
-                value={newChannelName}
-                onChange={(e) => setNewChannelName(e.target.value)}
-                className={styles.modalInput}
-                autoFocus
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '12px', backgroundColor: newChannelType === 'text' ? 'var(--bg-modifier-selected)' : 'var(--background-secondary)', borderRadius: '4px', border: newChannelType === 'text' ? '1px solid var(--text-link)' : '1px solid transparent' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 6.1H3"/><path d="M21 12.1H3"/><path d="M15.1 18H3"/></svg>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', color: 'var(--text-normal)' }}>Text</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Send messages, images, GIFs, emoji, opinions, and puns</div>
+                  </div>
+                  <input type="radio" name="channelType" value="text" checked={newChannelType === 'text'} onChange={() => setNewChannelType('text')} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '12px', backgroundColor: newChannelType === 'voice' ? 'var(--bg-modifier-selected)' : 'var(--background-secondary)', borderRadius: '4px', border: newChannelType === 'voice' ? '1px solid var(--text-link)' : '1px solid transparent' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', color: 'var(--text-normal)' }}>Voice</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Hang out together with voice, video, and screen share</div>
+                  </div>
+                  <input type="radio" name="channelType" value="voice" checked={newChannelType === 'voice'} onChange={() => setNewChannelType('voice')} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                </label>
+              </div>
+
+              <div style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Channel Name</div>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                  {newChannelType === 'text' ? '#' : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>}
+                </span>
+                <input
+                  type="text"
+                  placeholder="new-channel"
+                  value={newChannelName}
+                  onChange={(e) => setNewChannelName(e.target.value)}
+                  className={styles.modalInput}
+                  style={{ paddingLeft: '32px' }}
+                  autoFocus
+                />
+              </div>
+
               <div className={styles.modalActions}>
                 <button type="button" onClick={() => setIsChannelModalOpen(false)}>Cancel</button>
                 <button type="submit" className={styles.createBtn} disabled={!newChannelName.trim()}>Create Channel</button>

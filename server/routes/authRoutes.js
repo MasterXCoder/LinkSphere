@@ -35,9 +35,12 @@ router.get(
   },
   (req, res) => {
     console.log("Generating JWT for user:", req.user.username);
+    // `req.user.id` might return the string `_id` virtual. Use `_doc.id` to be safe if it's a numeric ID field.
+    const userId = req.user._doc?.id || req.user.id || req.user._id;
+
     // Generate JWT — same payload shape as existing login
     const token = jwt.sign(
-      { id: req.user.id || req.user._id, username: req.user.username },
+      { id: userId, username: req.user.username },
       SECRET,
       { expiresIn: "1h" }
     );
@@ -45,7 +48,7 @@ router.get(
     // Encode user data for the frontend
     const userData = encodeURIComponent(
       JSON.stringify({
-        id: req.user.id || req.user._id,
+        id: userId,
         username: req.user.username,
         email: req.user.email,
         dob: req.user.dob || "",

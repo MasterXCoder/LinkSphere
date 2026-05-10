@@ -51,8 +51,10 @@ const login = catchAsync(async (req, res) => {
     throw new ApiError(401, "Invalid credentials");
   }
 
+  const userId = user._doc?.id || user.id || user._id;
+
   const token = jwt.sign(
-    { id: user.id, username: user.username },
+    { id: userId, username: user.username },
     SECRET,
     { expiresIn: "1h" }
   );
@@ -60,7 +62,7 @@ const login = catchAsync(async (req, res) => {
   res.status(200).json({
     message: "Login successful",
     token,
-    user: { id: user.id, username: user.username, email: user.email, dob: user.dob, hasPassword: !!user.password, avatarUrl: user.avatarUrl },
+    user: { id: userId, username: user.username, email: user.email, dob: user.dob, hasPassword: !!user.password, avatarUrl: user.avatarUrl },
   });
 });
 

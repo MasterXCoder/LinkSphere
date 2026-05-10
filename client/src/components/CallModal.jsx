@@ -21,7 +21,7 @@ export default function CallModal({
 }) {
   // ── UI state ─────────────────────────────────────────────────────────────
   const [callState, setCallState] = useState(isIncoming ? 'ringing' : 'calling');
-  const [isVideoOff, setIsVideoOff]           = useState(false);
+
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [duration, setDuration]               = useState(0);
   const [hasRemoteVideo, setHasRemoteVideo]   = useState(false); // got remote VIDEO track
@@ -34,7 +34,8 @@ export default function CallModal({
   const [isRemoteSpeaking, setIsRemoteSpeaking] = useState(false);
   const [localStreamTrigger, setLocalStreamTrigger] = useState(0);
   const [remoteStreamTrigger, setRemoteStreamTrigger] = useState(0);
-  const [isRemoteVideoOff, setIsRemoteVideoOff] = useState(false);
+  const [isVideoOff, setIsVideoOff]           = useState(callType !== 'video');
+  const [isRemoteVideoOff, setIsRemoteVideoOff] = useState(callType !== 'video');
   const [isRemoteMuted, setIsRemoteMuted] = useState(false);
   const [isRemoteScreenSharing, setIsRemoteScreenSharing] = useState(false);
 
@@ -251,6 +252,8 @@ export default function CallModal({
   const acceptCall = useCallback(async (signal) => {
     const stream = await getLocalStream();
     if (!stream) return;
+    
+    setCallState('connecting');
     const pc = buildPeerConnection();
     stream.getTracks().forEach(t => pc.addTrack(t, stream));
     try {
@@ -270,7 +273,11 @@ export default function CallModal({
   useEffect(() => {
     if (!socket) return;
 
-    const onCallAccepted = async (signal) => {
+    const onCallAccepted = async (data) => {
+      // data might be { signal, from, isVoiceChannel } OR just signal
+      const signal = data.signal || data;
+      if (data.isVoiceChannel) return;
+
       const pc = pcRef.current;
       if (!pc) return;
       try {
@@ -281,7 +288,9 @@ export default function CallModal({
       }
     };
 
-    const onIceCandidate = async ({ candidate }) => {
+    const onIceCandidate = async (data) => {
+      if (data.isVoiceChannel) return;
+      const { candidate } = data;
       if (!candidate) return;
       const pc = pcRef.current;
       if (pc?.remoteDescription) {
@@ -461,10 +470,34 @@ export default function CallModal({
     }
   }, [isDeafened]);
 
-  const toggleVideo = () => {
-    const track = localStreamRef.current?.getVideoTracks()[0];
-    if (!track) return;
-    track.enabled = !track.enabled;
+  const toggleVideo = async () => {
+    let track = localStreamRef.current?.getVideoTracks()[0];
+    
+    if (!track) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
+        track = stream.getVideoTracks()[0];
+        localStreamRef.current?.addTrack(track);
+        
+        // Add track to peer connection and renegotiate
+        if (pcRef.current) {
+          pcRef.current.addTrack(track, localStreamRef.current);
+          triggerRenegotiation();
+        }
+        
+        // Update local video preview if it exists
+        if (localVideoRef.current && localStreamRef.current) {
+          localVideoRef.current.srcObject = localStreamRef.current;
+        }
+        setLocalStreamTrigger(prev => prev + 1);
+      } catch (err) {
+        console.error("Failed to get video track mid-call", err);
+        return;
+      }
+    } else {
+      track.enabled = !track.enabled;
+    }
+
     const nextIsVideoOff = !track.enabled;
     setIsVideoOff(nextIsVideoOff);
     socketRef.current?.emit('toggle-video', {
@@ -582,8 +615,8 @@ export default function CallModal({
     />
   );
 
-  // If ringing, show the incoming overlay
-  if (callState === 'ringing') {
+  // If ringing or calling, show the overlay
+  if (callState === 'ringing' || callState === 'calling') {
     return (
       <div className={styles.incomingOverlay}>
         {audioEl}
@@ -593,13 +626,17 @@ export default function CallModal({
           </div>
           <div className={styles.incomingInfo}>
             <div className={styles.incomingName}>{targetUser?.username || 'Unknown'}</div>
-            <div className={styles.incomingType}>Incoming {callType} call</div>
+            <div className={styles.incomingType}>
+              {callState === 'ringing' ? `Incoming ${callType} call` : `Calling...`}
+            </div>
           </div>
           <div className={styles.incomingActions}>
-            <button className={`${styles.actionBtn} ${styles.accept}`} onClick={() => acceptCall(initialSignal)} title="Accept">
-              <Phone size={24} />
-            </button>
-            <button className={`${styles.actionBtn} ${styles.reject}`} onClick={handleReject} title="Decline">
+            {callState === 'ringing' && (
+              <button className={`${styles.actionBtn} ${styles.accept}`} onClick={() => acceptCall(initialSignal)} title="Accept">
+                <Phone size={24} />
+              </button>
+            )}
+            <button className={`${styles.actionBtn} ${styles.reject}`} onClick={handleReject} title={callState === 'ringing' ? "Decline" : "Cancel"}>
               <PhoneOff size={24} />
             </button>
           </div>
