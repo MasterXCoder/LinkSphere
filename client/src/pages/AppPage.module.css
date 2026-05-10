@@ -25,8 +25,8 @@
   --glass-border: rgba(255, 255, 255, 0.06);
   /* Theming extras — overridden by theme system */
   --chat-font-size: 14px;
-  --font-family:    'Inter', system-ui, -apple-system, sans-serif;
-  --radius-base:    8px;
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --radius-base: 8px;
 }
 
 /* Compact mode styles live in index.css as global selectors (see html[data-compact]) */
@@ -254,7 +254,8 @@
 
 .dmNavList {
   display: flex;
-  flex-direction: column; gap: 2px;
+  flex-direction: column;
+  gap: 2px;
   padding: 8px;
 }
 
@@ -386,7 +387,8 @@
 
 .userText {
   display: flex;
-  flex-direction: column; line-height: 1.2;
+  flex-direction: column;
+  line-height: 1.2;
 }
 
 .userName {
@@ -437,7 +439,8 @@
   display: flex;
   flex-direction: column;
   background: var(--bg-surface);
-  position: relative; /* Contain absolute glow */
+  position: relative;
+  /* Contain absolute glow */
   overflow: hidden;
 }
 
@@ -448,18 +451,20 @@
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none; /* Allow clicks to pass to UI */
+  pointer-events: none;
+  /* Allow clicks to pass to UI */
   z-index: 0;
-  background: radial-gradient(
-    600px circle at var(--mouse-x) var(--mouse-y),
-    rgba(59, 130, 246, 0.08), /* Modern translucent blue */
-    transparent 40%
-  );
+  background: radial-gradient(600px circle at var(--mouse-x) var(--mouse-y),
+      rgba(59, 130, 246, 0.08),
+      /* Modern translucent blue */
+      transparent 40%);
   transition: opacity 0.5s ease;
 }
 
 /* Ensure UI content sits above the light effect */
-.topHeader, .chatLayout, .friendsLayout {
+.topHeader,
+.chatLayout,
+.friendsLayout {
   position: relative;
   z-index: 1;
 }
@@ -940,7 +945,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   transition: transform 0.15s;
 }
 
@@ -1105,7 +1110,8 @@
 
 .memberCount {
   display: flex;
-  align-items: center; gap: 4px;
+  align-items: center;
+  gap: 4px;
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 500;
@@ -1599,12 +1605,14 @@
 .channelRight {
   display: flex;
   align-items: center;
-  opacity: 0; /* Hidden by default */
+  opacity: 0;
+  /* Hidden by default */
   transition: opacity 0.2s ease;
 }
 
 .channel:hover .channelRight {
-  opacity: 1; /* Shows up when you hover the channel button */
+  opacity: 1;
+  /* Shows up when you hover the channel button */
 }
 
 .channelDeleteIcon {
@@ -1620,11 +1628,13 @@
   background: rgba(239, 68, 68, 0.1);
   transform: scale(1.1);
 }
+
 @keyframes spin {
   100% {
     transform: rotate(360deg);
   }
 }
+
 .spinning {
   animation: spin 1s linear infinite;
 }

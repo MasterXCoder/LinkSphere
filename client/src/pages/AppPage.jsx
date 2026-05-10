@@ -56,10 +56,10 @@ export default function AppPage() {
       newSocket.on("call-incoming", ({ signal, from, callType: incomingCallType, callerName }) => {
         const members = serverDataRef.current?.membersData || [];
         const caller = members.find(m => m.socketId === from);
-        setTargetUser({ 
+        setTargetUser({
           id: caller?.id,
-          socketId: from, 
-          username: caller?.username || callerName || 'Unknown' 
+          socketId: from,
+          username: caller?.username || callerName || 'Unknown'
         });
         setIncomingCall(signal);
         setCallType(incomingCallType || 'audio');
@@ -116,7 +116,7 @@ export default function AppPage() {
   const [activeServer, setActiveServer] = useState("home");
   const [serverData, setServerData] = useState(null); // full server details + members
   const [onlineUsers, setOnlineUsers] = useState({}); // userId -> socketId
-  
+
   // Sync refs
   useEffect(() => {
     serverDataRef.current = serverData;
@@ -461,7 +461,7 @@ export default function AppPage() {
 
     try {
       setIsSending(true);
-      let finalAttachmentUrl  = null;
+      let finalAttachmentUrl = null;
       let finalAttachmentName = null;
       let finalAttachmentSize = null;
       let finalAttachmentType = null;
@@ -485,7 +485,7 @@ export default function AppPage() {
         }
 
         const uploadData = await uploadRes.json();
-        finalAttachmentUrl  = uploadData.url;
+        finalAttachmentUrl = uploadData.url;
         finalAttachmentName = uploadData.originalName;
         finalAttachmentSize = uploadData.size;
         finalAttachmentType = uploadData.resourceType; // "image" | "video" | "raw"
@@ -498,8 +498,8 @@ export default function AppPage() {
           method: "POST",
           headers: authHeaders(token),
           body: JSON.stringify({
-            content:        msgInput,
-            attachmentUrl:  finalAttachmentUrl,
+            content: msgInput,
+            attachmentUrl: finalAttachmentUrl,
             attachmentName: finalAttachmentName,
             attachmentSize: finalAttachmentSize,
             attachmentType: finalAttachmentType,
@@ -597,7 +597,7 @@ export default function AppPage() {
     const url = msg.attachmentUrl || "";
     if (url.includes("/image/upload/")) return "image";
     if (url.includes("/video/upload/")) return "video";
-    if (url.includes("/raw/upload/"))   return "raw";
+    if (url.includes("/raw/upload/")) return "raw";
     if (/\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?|$)/i.test(url)) return "image";
     if (/\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(url)) return "video";
     return "image";
@@ -801,7 +801,7 @@ export default function AppPage() {
           <div className={styles.userStatus}>
             {isCallModalOpen ? (
               <span style={{ color: '#23a559', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
                 In voice
               </span>
             ) : (
@@ -812,22 +812,22 @@ export default function AppPage() {
       </div>
 
       <div className={styles.userControls}>
-        <button 
-          type="button" 
-          className={`${styles.userIconBtn} ${isMuted ? styles.userIconBtnDanger : ''}`} 
-          title={isMuted ? "Unmute" : "Mute"} 
+        <button
+          type="button"
+          className={`${styles.userIconBtn} ${isMuted ? styles.userIconBtnDanger : ''}`}
+          title={isMuted ? "Unmute" : "Mute"}
           onClick={() => setIsMuted(!isMuted)}
         >
           {isMuted ? (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
           ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" /><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" /></svg>
           )}
         </button>
-        <button 
-          type="button" 
-          className={`${styles.userIconBtn} ${isDeafened ? styles.userIconBtnDanger : ''}`} 
-          title={isDeafened ? "Undeafen" : "Deafen"} 
+        <button
+          type="button"
+          className={`${styles.userIconBtn} ${isDeafened ? styles.userIconBtnDanger : ''}`}
+          title={isDeafened ? "Undeafen" : "Deafen"}
           onClick={() => setIsDeafened(!isDeafened)}
         >
           {isDeafened ? (
@@ -1082,7 +1082,7 @@ export default function AppPage() {
                     <div className={styles.friendListHeader}>All Friends — {friendsData.friends.length}</div>
                     {friendsData.friends.length === 0 ? (
                       <div className={styles.emptyFriendsMsg}>
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{opacity:0.3}}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.3 }}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
                         <p>You don't have any friends yet. Send a friend request to get started!</p>
                       </div>
                     ) : (
@@ -1101,8 +1101,8 @@ export default function AppPage() {
                             </div>
                           </div>
                           <div className={styles.friendRowActions}>
-                            <button className={styles.friendActionBtn} title="Message"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
-                            <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg></button>
+                            <button className={styles.friendActionBtn} title="Message"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg></button>
+                            <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z" /></svg></button>
                           </div>
                         </div>
                       ))
@@ -1116,7 +1116,7 @@ export default function AppPage() {
                     <div className={styles.friendListHeader}>Online — {friendsData.friends.filter(f => onlineUsers[f.id]).length}</div>
                     {friendsData.friends.filter(f => onlineUsers[f.id]).length === 0 ? (
                       <div className={styles.emptyFriendsMsg}>
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{opacity:0.3}}><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.3 }}><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
                         <p>None of your friends are online right now.</p>
                       </div>
                     ) : (
@@ -1135,8 +1135,8 @@ export default function AppPage() {
                             </div>
                           </div>
                           <div className={styles.friendRowActions}>
-                            <button className={styles.friendActionBtn} title="Message"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
-                            <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg></button>
+                            <button className={styles.friendActionBtn} title="Message"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg></button>
+                            <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z" /></svg></button>
                           </div>
                         </div>
                       ))
@@ -1150,7 +1150,7 @@ export default function AppPage() {
                     <div className={styles.friendListHeader}>Pending — {friendsData.incoming.length + friendsData.outgoing.length}</div>
                     {friendsData.incoming.length === 0 && friendsData.outgoing.length === 0 ? (
                       <div className={styles.emptyFriendsMsg}>
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{opacity:0.3}}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.3 }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                         <p>No pending friend requests.</p>
                       </div>
                     ) : (
@@ -1169,8 +1169,8 @@ export default function AppPage() {
                               </div>
                             </div>
                             <div className={styles.friendRowActions}>
-                              <button className={`${styles.friendActionBtn} ${styles.friendActionAccept}`} title="Accept" onClick={() => handleAcceptFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></button>
-                              <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Decline" onClick={() => handleDeclineFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+                              <button className={`${styles.friendActionBtn} ${styles.friendActionAccept}`} title="Accept" onClick={() => handleAcceptFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></button>
+                              <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Decline" onClick={() => handleDeclineFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg></button>
                             </div>
                           </div>
                         ))}
@@ -1188,7 +1188,7 @@ export default function AppPage() {
                               </div>
                             </div>
                             <div className={styles.friendRowActions}>
-                              <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Cancel" onClick={() => handleCancelFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+                              <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Cancel" onClick={() => handleCancelFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg></button>
                             </div>
                           </div>
                         ))}
@@ -1330,7 +1330,7 @@ export default function AppPage() {
                                   >
                                     <div className={styles.fileCardIcon}>
                                       <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/>
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
                                       </svg>
                                     </div>
                                     <div className={styles.fileCardInfo}>
@@ -1341,7 +1341,7 @@ export default function AppPage() {
                                     </div>
                                     <div className={styles.fileCardDownload}>
                                       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
                                       </svg>
                                     </div>
                                   </a>
@@ -1367,7 +1367,7 @@ export default function AppPage() {
                       ) : (
                         <div className={styles.filePreviewBadge}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/>
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
                           </svg>
                           <span className={styles.filePreviewName}>{attachmentMeta?.name}</span>
                           <span className={styles.filePreviewSize}>{formatFileSize(attachmentMeta?.size)}</span>
@@ -1420,8 +1420,8 @@ export default function AppPage() {
                       }}>
                         {!m.avatarUrl && m.username.charAt(0).toUpperCase()}
                       </div>
-                      <div 
-                        className={styles.memberDot} 
+                      <div
+                        className={styles.memberDot}
                         style={{ background: onlineUsers[m.id] ? '#23a559' : '#80848e' }}
                       ></div>
                     </div>
@@ -1434,8 +1434,8 @@ export default function AppPage() {
                     {/*call buttons - always show but disabled if offline*/}
                     {(m.id !== userId) && (
                       <div className={styles.memberActions}>
-                        <button 
-                          className={styles.callBtn} 
+                        <button
+                          className={styles.callBtn}
                           onClick={() => {
                             if (!onlineUsers[m.id]) {
                               alert('User is not online');
@@ -1446,10 +1446,10 @@ export default function AppPage() {
                           title={onlineUsers[m.id] ? "Audio call" : "User offline"}
                           disabled={!onlineUsers[m.id]}
                         >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z"/></svg>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z" /></svg>
                         </button>
-                        <button 
-                          className={styles.callBtn} 
+                        <button
+                          className={styles.callBtn}
                           onClick={() => {
                             if (!onlineUsers[m.id]) {
                               alert('User is not online');
@@ -1460,7 +1460,7 @@ export default function AppPage() {
                           title={onlineUsers[m.id] ? "Video call" : "User offline"}
                           disabled={!onlineUsers[m.id]}
                         >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" /></svg>
                         </button>
                       </div>
                     )}
