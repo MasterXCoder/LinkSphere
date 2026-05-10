@@ -578,16 +578,24 @@ export default function AppPage() {
 
   // ── Voice/Video Call Functions ──
   const logCallStartEvent = async (type) => {
-    if (!activeServer || activeServer === "home" || !activeChannel) return;
     try {
-      await fetch(
-        `${API}/servers/${activeServer}/channels/${activeChannel}/call-events`,
-        {
+      if (activeServer === "home" && selectedDmFriend?.id) {
+        await fetch(`${API}/dm/${selectedDmFriend.id}/call-events`, {
           method: "POST",
           headers: authHeaders(token),
           body: JSON.stringify({ callType: type }),
-        }
-      );
+        });
+        fetchDmMessages();
+      } else if (activeServer && activeServer !== "home" && activeChannel) {
+        await fetch(
+          `${API}/servers/${activeServer}/channels/${activeChannel}/call-events`,
+          {
+            method: "POST",
+            headers: authHeaders(token),
+            body: JSON.stringify({ callType: type }),
+          }
+        );
+      }
     } catch (err) {
       console.error("Failed to log call start event:", err);
     }
@@ -917,7 +925,10 @@ export default function AppPage() {
             </div>
             <div className={styles.scrollSection}>
               <div className={styles.dmNavList}>
-                <div className={`${styles.navItem} ${styles.activeNavItem}`}>
+                <div 
+                  className={`${styles.navItem} ${!selectedDmFriend ? styles.activeNavItem : ""}`}
+                  onClick={() => setSelectedDmFriend(null)}
+                >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v2h20v-2c0-3.33-6.67-5-10-5z" /></svg>
                   <span>Friends</span>
                 </div>
@@ -1052,9 +1063,14 @@ export default function AppPage() {
                 <div className={styles.headerTitle} style={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
                   {selectedDmFriend ? (
                     <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button className={styles.tabBtn} onClick={() => setSelectedDmFriend(null)}>Back</button>
-                        <span>@ {selectedDmFriend.username}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div className={styles.friendAvatarWrap} style={{ width: '28px', height: '28px' }}>
+                          <div className={styles.friendAvatar} style={{ backgroundImage: selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: selectedDmFriend.avatarUrl ? 'transparent' : 'inherit' }}>
+                            {!selectedDmFriend.avatarUrl && selectedDmFriend.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div className={styles.friendDot} style={{ background: onlineUsers[selectedDmFriend.id] ? '#23a559' : '#80848e', width: '10px', height: '10px', bottom: '-2px', right: '-2px', border: '2px solid var(--bg-base)' }}></div>
+                        </div>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{selectedDmFriend.username}</span>
                       </div>
                       <div className={styles.dmHeaderRight}>
                         <div className={styles.dmHeaderIcons}>
@@ -1113,7 +1129,7 @@ export default function AppPage() {
                     <div className={styles.messageList}>
                       {dmMessages.length === 0 && (
                         <div className={styles.welcomeMsg}>
-                          <div className={styles.welcomeHash} style={{ backgroundImage: selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: selectedDmFriend.avatarUrl ? 'transparent' : 'inherit' }}>
+                          <div className={styles.welcomeHash} style={{ borderRadius: '50%', width: '80px', height: '80px', fontSize: '32px', backgroundImage: selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: selectedDmFriend.avatarUrl ? 'transparent' : 'inherit' }}>
                             {!selectedDmFriend.avatarUrl && selectedDmFriend.username.charAt(0).toUpperCase()}
                           </div>
                           <h2 className={styles.welcomeTitle}>{selectedDmFriend.username}</h2>
@@ -1134,6 +1150,23 @@ export default function AppPage() {
                         </div>
                       )}
                       {dmMessages.map((msg) => {
+                        if (msg.type === "system") {
+                          return (
+                            <div key={msg.id} className={msg.systemKind === "call_started" ? styles.callSystemMsg : styles.systemMsg}>
+                              {msg.systemKind === "call_started" ? (
+                                <div className={styles.callSystemIcon}>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16.42v3.54a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 1.14 4.18 2 2 0 0 1 3.13 2h3.54a2 2 0 0 1 2 1.72c.12.89.35 1.76.68 2.59a2 2 0 0 1-.45 2.11L7.42 9.9a16 16 0 0 0 6.68 6.68l1.48-1.48a2 2 0 0 1 2.11-.45c.83.33 1.7.56 2.59.68A2 2 0 0 1 21 16.42z" /></svg>
+                                </div>
+                              ) : (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3" /></svg>
+                              )}
+                              <span className={msg.systemKind === "call_started" ? styles.callSystemText : ""}>{msg.content}</span>
+                              <span className={styles.msgTimestamp}>
+                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          );
+                        }
                         const isOwn = msg.senderId === userId;
                         return (
                           <div key={msg.id} className={styles.message}>

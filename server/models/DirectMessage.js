@@ -35,6 +35,16 @@ const directMessageSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    type: {
+      type: String,
+      enum: ["user", "system"],
+      default: "user",
+    },
+    systemKind: {
+      type: String,
+      enum: ["generic", "call_started"],
+      default: "generic",
+    },
     timestamp: {
       type: Date,
       default: Date.now,

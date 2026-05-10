@@ -59,7 +59,32 @@ const postDirectMessage = catchAsync(async (req, res) => {
   res.status(201).json(newMessage);
 });
 
+// POST /api/dm/:friendId/call-events
+const postDmCallStartEvent = catchAsync(async (req, res) => {
+  const meId = req.user.id;
+  const friendId = Number(req.params.friendId);
+  const { callType = "audio" } = req.body || {};
+
+  if (!Number.isFinite(friendId)) throw new ApiError(400, "Invalid friend id");
+  if (friendId === meId) throw new ApiError(400, "Cannot call yourself");
+
+  await ensureFriendship(meId, friendId);
+
+  const normalizedCallType = callType === "video" ? "video" : "audio";
+  const newMessage = new DirectMessage({
+    participants: normalizeParticipants(meId, friendId),
+    senderId: meId, // The person who started the call
+    type: "system",
+    systemKind: "call_started",
+    content: `${req.user.username} started a ${normalizedCallType} call.`,
+  });
+
+  await newMessage.save();
+  res.status(201).json(newMessage);
+});
+
 module.exports = {
   getDirectMessages,
   postDirectMessage,
+  postDmCallStartEvent,
 };
