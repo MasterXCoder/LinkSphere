@@ -32,8 +32,11 @@ const createChannelSchema = z.object({
 });
 
 const postMessageSchema = z.object({
-  content: z.string().max(2000, "Message cannot exceed 2000 characters").optional(),
-  attachmentUrl: z.string().url("Invalid attachment URL").optional().nullable(),
+  content:        z.string().max(2000, "Message cannot exceed 2000 characters").optional(),
+  attachmentUrl:  z.string().url("Invalid attachment URL").optional().nullable(),
+  attachmentName: z.string().max(255).optional().nullable(),
+  attachmentSize: z.number().int().nonnegative().optional().nullable(),
+  attachmentType: z.enum(["image", "video", "raw"]).optional().nullable(),
 }).refine(
   (data) => (data.content && data.content.trim().length > 0) || data.attachmentUrl,
   { message: "Message must have content or an attachment" }

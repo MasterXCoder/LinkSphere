@@ -23,7 +23,13 @@
   --success: #22c55e;
   --glass: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.06);
+  /* Theming extras — overridden by theme system */
+  --chat-font-size: 14px;
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --radius-base: 8px;
 }
+
+/* Compact mode styles live in index.css as global selectors (see html[data-compact]) */
 
 /* ─── ROOT LAYOUT ─── */
 .layout {
@@ -31,7 +37,7 @@
   height: 100vh;
   background: var(--bg-deep);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-family, 'Inter', system-ui, sans-serif);
   overflow: hidden;
 }
 
@@ -248,7 +254,8 @@
 
 .dmNavList {
   display: flex;
-  flex-direction: column; gap: 2px;
+  flex-direction: column;
+  gap: 2px;
   padding: 8px;
 }
 
@@ -306,6 +313,18 @@
   gap: 10px;
   padding: 6px 12px;
   margin: 1px 8px;
+  width: calc(100% - 16px);
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.dmPlaceholder:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .dmAvatarGhost {
@@ -313,6 +332,13 @@
   height: 32px;
   border-radius: 10px;
   background: var(--bg-raised);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .dmNameGhost {
@@ -380,7 +406,8 @@
 
 .userText {
   display: flex;
-  flex-direction: column; line-height: 1.2;
+  flex-direction: column;
+  line-height: 1.2;
 }
 
 .userName {
@@ -431,7 +458,8 @@
   display: flex;
   flex-direction: column;
   background: var(--bg-surface);
-  position: relative; /* Contain absolute glow */
+  position: relative;
+  /* Contain absolute glow */
   overflow: hidden;
 }
 
@@ -442,18 +470,20 @@
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none; /* Allow clicks to pass to UI */
+  pointer-events: none;
+  /* Allow clicks to pass to UI */
   z-index: 0;
-  background: radial-gradient(
-    600px circle at var(--mouse-x) var(--mouse-y),
-    rgba(59, 130, 246, 0.08), /* Modern translucent blue */
-    transparent 40%
-  );
+  background: radial-gradient(600px circle at var(--mouse-x) var(--mouse-y),
+      rgba(59, 130, 246, 0.08),
+      /* Modern translucent blue */
+      transparent 40%);
   transition: opacity 0.5s ease;
 }
 
 /* Ensure UI content sits above the light effect */
-.topHeader, .chatLayout, .friendsLayout {
+.topHeader,
+.chatLayout,
+.friendsLayout {
   position: relative;
   z-index: 1;
 }
@@ -849,6 +879,29 @@
   border: 1px solid var(--border);
 }
 
+.fileAttachmentLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  text-decoration: none;
+  max-width: 420px;
+}
+
+.fileAttachmentLink:hover {
+  background: var(--bg-hover);
+}
+
+.fileAttachmentLink span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* System message */
 .systemMsg {
   display: flex;
@@ -920,6 +973,20 @@
   object-fit: contain;
 }
 
+.filePreviewRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  max-width: 320px;
+}
+
+.filePreviewName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cancelAttachmentBtn {
   position: absolute;
   top: -8px;
@@ -934,7 +1001,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   transition: transform 0.15s;
 }
 
@@ -1099,7 +1166,8 @@
 
 .memberCount {
   display: flex;
-  align-items: center; gap: 4px;
+  align-items: center;
+  gap: 4px;
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 500;
@@ -1594,13 +1662,15 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  opacity: 0; /* Hidden by default */
+  opacity: 0;
+  /* Hidden by default */
   transition: opacity 0.2s ease;
 }
 
 .channel:hover .channelRight,
 .activeChannel .channelRight {
-  opacity: 1; /* Shows up when you hover or it's active */
+  opacity: 1;
+  /* Shows up when you hover or it's active */
 }
 
 .channelActionIcon {
@@ -1629,11 +1699,13 @@
   background: rgba(239, 68, 68, 0.1);
   transform: scale(1.1);
 }
+
 @keyframes spin {
   100% {
     transform: rotate(360deg);
   }
 }
+
 .spinning {
   animation: spin 1s linear infinite;
 }
@@ -1894,15 +1966,15 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-image: 
-    radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.9), rgba(0,0,0,0)),
-    radial-gradient(1.5px 1.5px at 40px 70px, rgba(255, 255, 255, 0.8), rgba(0,0,0,0)),
-    radial-gradient(1px 1px at 50px 160px, rgba(255,255,255,0.8), rgba(0,0,0,0)),
-    radial-gradient(2px 2px at 90px 40px, rgba(255,255,255,0.9), rgba(0,0,0,0)),
-    radial-gradient(1px 1px at 130px 80px, rgba(255, 255, 255, 0.7), rgba(0,0,0,0)),
-    radial-gradient(1.5px 1.5px at 160px 120px, rgba(255,255,255,0.7), rgba(0,0,0,0)),
-    radial-gradient(2px 2px at 180px 10px, rgba(255,255,255,0.6), rgba(0,0,0,0)),
-    radial-gradient(1px 1px at 200px 180px, rgba(255,255,255,0.5), rgba(0,0,0,0));
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.9), rgba(0, 0, 0, 0)),
+    radial-gradient(1.5px 1.5px at 40px 70px, rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0)),
+    radial-gradient(1px 1px at 50px 160px, rgba(255, 255, 255, 0.8), rgba(0, 0, 0, 0)),
+    radial-gradient(2px 2px at 90px 40px, rgba(255, 255, 255, 0.9), rgba(0, 0, 0, 0)),
+    radial-gradient(1px 1px at 130px 80px, rgba(255, 255, 255, 0.7), rgba(0, 0, 0, 0)),
+    radial-gradient(1.5px 1.5px at 160px 120px, rgba(255, 255, 255, 0.7), rgba(0, 0, 0, 0)),
+    radial-gradient(2px 2px at 180px 10px, rgba(255, 255, 255, 0.6), rgba(0, 0, 0, 0)),
+    radial-gradient(1px 1px at 200px 180px, rgba(255, 255, 255, 0.5), rgba(0, 0, 0, 0));
   background-repeat: repeat;
   background-size: 250px 250px;
   animation: sparkle 4s linear infinite alternate;
@@ -1910,8 +1982,15 @@
 }
 
 @keyframes sparkle {
-  0% { opacity: 0.3; transform: scale(1); }
-  100% { opacity: 0.8; transform: scale(1.05); }
+  0% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
 }
 
 .voiceChannelCenter {

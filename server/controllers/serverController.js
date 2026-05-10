@@ -65,8 +65,11 @@ const getServer = catchAsync(async (req, res) => {
   if (!server) throw new ApiError(404, "Server not found");
   if (!server.members.includes(req.user.id)) throw new ApiError(403, "Not a member");
 
-  const memberDocs = await User.find({ id: { $in: server.members } });
-  const membersWithNames = server.members.map((memberId) => {
+  // Deduplicate member IDs — the members array can accumulate duplicates if a
+  // user joined/was added more than once. Fix at the source before responding.
+  const uniqueMemberIds = [...new Set(server.members)];
+  const memberDocs = await User.find({ id: { $in: uniqueMemberIds } });
+  const membersWithNames = uniqueMemberIds.map((memberId) => {
     const user = memberDocs.find((u) => u.id === memberId);
     return { id: memberId, username: user ? user.username : "Unknown", avatarUrl: user?.avatarUrl || null, socketId: user?.socketId || null };
   });
@@ -165,8 +168,9 @@ const joinServer = catchAsync(async (req, res) => {
   if (!server) throw new ApiError(404, "Server not found");
   if (server.members.includes(userId)) throw new ApiError(400, "Already a member");
 
-  server.members.push(userId);
-  await server.save();
+  // $addToSet prevents duplicate IDs at the DB level (atomic, race-condition safe)
+  await Server.updateOne({ id }, { $addToSet: { members: userId } });
+  const updatedServer = await Server.findOne({ id });
 
   if (server.channels[0]) {
     const welcomeMsg = new Message({
@@ -209,8 +213,8 @@ const joinByInvite = catchAsync(async (req, res) => {
     return res.json({ message: "Already a member", server, alreadyMember: true });
   }
 
-  server.members.push(userId);
-  await server.save();
+  // $addToSet prevents duplicate IDs at the DB level
+  await Server.updateOne({ _id: server._id }, { $addToSet: { members: userId } });
 
   if (server.channels[0]) {
     const welcomeMsg = new Message({
@@ -292,7 +296,7 @@ const getChannelMessages = catchAsync(async (req, res) => {
 const postMessage = catchAsync(async (req, res) => {
   const id = Number(req.params.id);
   const { channelId } = req.params;
-  const { content, attachmentUrl } = req.body;
+  const { content, attachmentUrl, attachmentName, attachmentSize, attachmentType } = req.body;
 
   // Note: content/attachmentUrl combo validated by Zod middleware (postMessageSchema)
 
@@ -309,7 +313,10 @@ const postMessage = catchAsync(async (req, res) => {
     authorId: req.user.id,
     authorName: req.user.username,
     content: content ? content.trim() : "",
-    attachmentUrl: attachmentUrl || null,
+    attachmentUrl:  attachmentUrl  || null,
+    attachmentName: attachmentName || null,
+    attachmentSize: attachmentSize ?? null,
+    attachmentType: attachmentType || null,
     type: "user",
   });
 
@@ -321,8 +328,8 @@ const postMessage = catchAsync(async (req, res) => {
     const msgObj = newMessage.toObject();
     const emitPayload = {
       ...msgObj,
-      authorName: author ? author.username : msgObj.authorName,
-      authorAvatarUrl: author?.avatarUrl || null
+      authorName:     author ? author.username : msgObj.authorName,
+      authorAvatarUrl: author?.avatarUrl || null,
     };
     io.to(channelId).emit("new_message", emitPayload);
   }

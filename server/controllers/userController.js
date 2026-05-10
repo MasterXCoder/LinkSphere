@@ -107,9 +107,9 @@ const updateUser = catchAsync(async (req, res) => {
   }
 
   if (username) user.username = username;
-  if (email)    user.email    = email;
+  if (email) user.email = email;
   if (password) user.password = await bcrypt.hash(password, 10);
-  if (dob)      user.dob      = dob;
+  if (dob) user.dob = dob;
 
   await user.save();
 
@@ -222,9 +222,9 @@ const acceptFriendRequest = catchAsync(async (req, res) => {
 
   const io = req.app.get("io");
   if (io) {
-    io.emit('friend-request-accepted', { 
-      targetUserId: fromId, 
-      fromUser: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl } 
+    io.emit('friend-request-accepted', {
+      targetUserId: fromId,
+      fromUser: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl }
     });
   }
 
@@ -262,9 +262,9 @@ const getFriendsAndRequests = catchAsync(async (req, res) => {
   // Fetch pending requests details
   const pendingRequests = (currentUser.friendRequests || []).filter(r => r.status === 'pending');
   const fromIds = pendingRequests.map(r => r.fromId);
-  
+
   const pendingUsers = await User.find({ id: { $in: fromIds } }, 'id username avatarUrl');
-  
+
   const requests = pendingRequests.map(req => {
     const u = pendingUsers.find(user => user.id === req.fromId);
     return {

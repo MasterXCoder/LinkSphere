@@ -28,6 +28,19 @@ const messageSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  attachmentName: {
+    type: String,
+    default: null, // original filename (e.g. "report.pdf")
+  },
+  attachmentSize: {
+    type: Number,
+    default: null, // bytes
+  },
+  attachmentType: {
+    type: String,
+    enum: ["image", "video", "raw"],
+    default: null, // drives client-side rendering — null means no attachment
+  },
   type: {
     type: String,
     enum: ["user", "system"],

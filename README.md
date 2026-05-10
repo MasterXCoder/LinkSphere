@@ -77,7 +77,7 @@ LinkSphere is a full-stack real-time communication platform that enables users t
 | **Backend** | Node.js 25, Express 5, Socket.io 4 |
 | **Database** | MongoDB, Mongoose 9 |
 | **Authentication** | JWT, bcrypt 6, Passport.js, Google OAuth 2.0 |
-| **Storage** | Cloudinary (image uploads) |
+| **Storage** | Cloudinary (image + file uploads) |
 | **Real-time** | Socket.io, WebRTC |
 | **Validation** | Zod |
 | **Dev Tools** | concurrently, nodemon |
@@ -90,7 +90,7 @@ LinkSphere is a full-stack real-time communication platform that enables users t
 
 - Node.js 18+
 - MongoDB (local or Atlas)
-- Cloudinary account (optional, for image uploads)
+- Cloudinary account (optional, for image/file uploads)
 - Google OAuth credentials (optional, for social login)
 
 ### Installation
@@ -306,7 +306,7 @@ linksphere/
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|--------------|
-| POST | `/api/upload/image` | Yes | Upload image |
+| POST | `/api/upload` | Yes | Upload attachment (image/file) |
 
 ### Health
 
