@@ -1284,7 +1284,7 @@ export default function AppPage() {
                               {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
-                          {msg.content && <p className={styles.msgBody}>{msg.content}</p>}
+                          {msg.content && <p className={styles.msgBody} style={{ fontSize: 'var(--chat-font-size, 14px)', margin: '2px 0 0' }}>{msg.content}</p>}
 
                           {/* ─ Attachment Renderer ─ */}
                           {msg.attachmentUrl && (() => {

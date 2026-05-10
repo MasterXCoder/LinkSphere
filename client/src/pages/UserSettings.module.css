@@ -707,3 +707,209 @@
   transform: none;
   box-shadow: none;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   APPEARANCE — THEME GRID
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.themeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.themeCard {
+  position: relative;
+  background: #0d1017;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+  color: #e4e6eb;
+}
+
+.themeCard:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+.themeCardActive {
+  border-color: #7c3aed !important;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.3), 0 6px 24px rgba(0, 0, 0, 0.4) !important;
+  transform: translateY(-2px);
+}
+
+/* Three-dot swatch preview */
+.themeSwatch {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.themeSwatchDot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.themeCardLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.themeEmoji {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.themeCardName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.themeCardDesc {
+  font-size: 11px;
+  color: #8b8fa3;
+  line-height: 1.4;
+}
+
+/* Active checkmark badge */
+.themeActiveCheck {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #7c3aed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   APPEARANCE — FONT SIZE SLIDER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0 16px;
+}
+
+.sliderLabel {
+  font-size: 12px;
+  color: #8b8fa3;
+  white-space: nowrap;
+  min-width: 30px;
+}
+
+.sliderValue {
+  font-size: 13px;
+  font-weight: 700;
+  color: #7c3aed;
+  min-width: 36px;
+  text-align: right;
+}
+
+.themeSlider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #7c3aed, #3b82f6);
+  outline: none;
+  cursor: pointer;
+}
+
+.themeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #7c3aed;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+  cursor: grab;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+
+.themeSlider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.15);
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.6);
+}
+
+/* Font preview box */
+.fontPreview {
+  background: #0d1017;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 16px;
+  line-height: 1.5;
+  transition: font-size 0.1s;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   APPEARANCE — COMPACT MODE TOGGLE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.toggleBtn {
+  flex-shrink: 0;
+  width: 48px;
+  height: 26px;
+  border-radius: 13px;
+  background: #2a2f42;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.25s;
+  padding: 0;
+}
+
+.toggleBtnOn {
+  background: linear-gradient(135deg, #7c3aed, #3b82f6);
+}
+
+.toggleKnob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.toggleBtnOn .toggleKnob {
+  transform: translateX(22px);
+}

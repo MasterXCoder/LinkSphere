@@ -23,7 +23,13 @@
   --success: #22c55e;
   --glass: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.06);
+  /* Theming extras — overridden by theme system */
+  --chat-font-size: 14px;
+  --font-family:    'Inter', system-ui, -apple-system, sans-serif;
+  --radius-base:    8px;
 }
+
+/* Compact mode styles live in index.css as global selectors (see html[data-compact]) */
 
 /* ─── ROOT LAYOUT ─── */
 .layout {
@@ -31,7 +37,7 @@
   height: 100vh;
   background: var(--bg-deep);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-family, 'Inter', system-ui, sans-serif);
   overflow: hidden;
 }
 

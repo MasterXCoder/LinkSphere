@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styles from './UserSettings.module.css';
+import { THEMES, saveTheme } from '../utils/theme.js';
 
 export default function UserSettings({ onClose }) {
   const navigate = useNavigate();
@@ -68,8 +69,13 @@ export default function UserSettings({ onClose }) {
   const [avatarUploadLoading, setAvatarUploadLoading] = useState(false);
   const avatarInputRef = useRef(null);
 
-  // Settings tab: 'account' | 'friends'
+  // Settings tab
   const [settingsTab, setSettingsTab] = useState('account');
+
+  // Appearance state
+  const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('ls-theme') || 'dark');
+  const [fontSize,    setFontSize]    = useState(() => Number(localStorage.getItem('ls-fontsize')  || 14));
+  const [compactMode, setCompactMode] = useState(() => localStorage.getItem('ls-compact') === 'true');
 
   // Friends state
   const [friendsData, setFriendsData] = useState({ friends: [], incoming: [], outgoing: [] });
@@ -482,7 +488,7 @@ export default function UserSettings({ onClose }) {
 
           <div className={styles.navSection}>
             <div className={styles.navHeader}>App Settings</div>
-            <NavItem label="Appearance" />
+            <NavItem label="Appearance" active={settingsTab === 'appearance'} onClick={() => setSettingsTab('appearance')} />
             <NavItem label="Accessibility" />
             <NavItem label="Voice & Video" />
             <NavItem label="Language & Time" />
@@ -698,9 +704,108 @@ export default function UserSettings({ onClose }) {
               </div>
             </>
           )}
-        </div>
+          {/* ── Appearance Tab ── */}
+          {settingsTab === 'appearance' && (
+            <>
+              <h2 className={styles.pageTitle}>Appearance</h2>
 
-        {/* Close Escape Button */}
+              {/* ── Theme selector ── */}
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Theme</h2>
+                <p className={styles.blockDesc}>Choose a theme to personalise your LinkSphere experience. Changes apply instantly.</p>
+
+                <div className={styles.themeGrid}>
+                  {Object.values(THEMES).map(theme => (
+                    <button
+                      key={theme.id}
+                      className={`${styles.themeCard} ${activeTheme === theme.id ? styles.themeCardActive : ''}`}
+                      onClick={() => {
+                        setActiveTheme(theme.id);
+                        saveTheme(theme.id);
+                      }}
+                    >
+                      {/* Colour swatch row */}
+                      <div className={styles.themeSwatch}>
+                        {theme.preview.map((c, i) => (
+                          <div key={i} className={styles.themeSwatchDot} style={{ background: c }} />
+                        ))}
+                      </div>
+                      <div className={styles.themeCardLabel}>
+                        <span className={styles.themeEmoji}>{theme.emoji}</span>
+                        <span className={styles.themeCardName}>{theme.label}</span>
+                      </div>
+                      <div className={styles.themeCardDesc}>{theme.description}</div>
+                      {activeTheme === theme.id && (
+                        <div className={styles.themeActiveCheck}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className={styles.sectionDivider} />
+
+              {/* ── Font size ── */}
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Chat Font Size</h2>
+                <p className={styles.blockDesc}>Adjust the base font size used in chat messages.</p>
+                <div className={styles.sliderRow}>
+                  <span className={styles.sliderLabel}>12px</span>
+                  <input
+                    type="range"
+                    min={12} max={20} step={1}
+                    value={fontSize}
+                    className={styles.themeSlider}
+                    onChange={e => {
+                      const v = Number(e.target.value);
+                      setFontSize(v);
+                      localStorage.setItem('ls-fontsize', v);
+                      document.documentElement.style.setProperty('--chat-font-size', `${v}px`);
+                    }}
+                  />
+                  <span className={styles.sliderLabel}>20px</span>
+                  <span className={styles.sliderValue}>{fontSize}px</span>
+                </div>
+                {/* Live preview */}
+                <div className={styles.fontPreview} style={{ fontSize: `${fontSize}px` }}>
+                  <span style={{ fontWeight: 600, color: 'var(--accent-1)' }}>Master Mind</span>
+                  {' '}<span style={{ color: 'var(--text-muted)', fontSize: '0.75em' }}>Today at 12:34 PM</span>
+                  <div style={{ marginTop: 4, color: 'var(--text-primary)' }}>Hey, this is what your messages will look like!</div>
+                </div>
+              </div>
+
+              <div className={styles.sectionDivider} />
+
+              {/* ── Compact mode ── */}
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <div className={styles.toggleRow}>
+                  <div>
+                    <h2 className={styles.sectionTitle} style={{ marginBottom: 4 }}>Compact Mode</h2>
+                    <p className={styles.blockDesc} style={{ marginBottom: 0 }}>Reduce spacing between messages to fit more content on screen.</p>
+                  </div>
+                  <button
+                    className={`${styles.toggleBtn} ${compactMode ? styles.toggleBtnOn : ''}`}
+                    onClick={() => {
+                      const next = !compactMode;
+                      setCompactMode(next);
+                      localStorage.setItem('ls-compact', next);
+                      document.documentElement.dataset.compact = next ? 'true' : 'false';
+                    }}
+                    aria-pressed={compactMode}
+                  >
+                    <div className={styles.toggleKnob} />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+        </div>{/* end contentWrapper */}
+
         <div className={styles.closeContainer} onClick={onClose}>
           <button className={styles.closeBtn}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
