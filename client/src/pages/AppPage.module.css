@@ -23,7 +23,13 @@
   --success: #22c55e;
   --glass: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.06);
+  /* Theming extras — overridden by theme system */
+  --chat-font-size: 14px;
+  --font-family:    'Inter', system-ui, -apple-system, sans-serif;
+  --radius-base:    8px;
 }
+
+/* Compact mode styles live in index.css as global selectors (see html[data-compact]) */
 
 /* ─── ROOT LAYOUT ─── */
 .layout {
@@ -31,7 +37,7 @@
   height: 100vh;
   background: var(--bg-deep);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-family, 'Inter', system-ui, sans-serif);
   overflow: hidden;
 }
 
@@ -1920,275 +1926,105 @@
 }
 
 /* ═══════════════════════════════════════════
-   DM REDESIGN STYLES
+   FILE SHARING — DOWNLOAD CARD
    ═══════════════════════════════════════════ */
 
-/* DM Header */
-.dmHeaderRight {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.dmHeaderIcons {
-  display: flex;
+/* Card shown in chat for PDFs, docs, zips, etc. */
+.fileCard {
+  display: inline-flex;
   align-items: center;
   gap: 12px;
-}
-
-.dmHeaderIconBtn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.15s;
-}
-
-.dmHeaderIconBtn:hover {
-  color: var(--text-primary);
-}
-
-.dmSearchBar {
-  display: flex;
-  align-items: center;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 8px;
-  width: 144px;
-  transition: width 0.2s;
-}
-
-.dmSearchBar:focus-within {
-  width: 200px;
-}
-
-.dmSearchInput {
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  width: 100%;
-}
-
-.dmSearchInput::placeholder {
-  color: var(--text-muted);
-}
-
-/* DM Chat Empty State */
-.dmEmptyActions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.dmEmptyActionBtn {
+  margin-top: 8px;
+  padding: 12px 16px;
   background: var(--bg-raised);
-  border: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-decoration: none;
   color: var(--text-primary);
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 13px;
-  font-weight: 500;
+  max-width: 360px;
+  transition: background 0.15s, border-color 0.15s;
   cursor: pointer;
-  transition: background 0.15s;
 }
 
-.dmEmptyActionBtn:hover {
+.fileCard:hover {
   background: var(--bg-hover);
+  border-color: var(--accent-1);
 }
 
-.mutualServers {
+.fileCardIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: rgba(124, 58, 237, 0.15);
+  color: #a78bfa;
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--text-secondary);
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.fileCardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.fileCardName {
   font-size: 13px;
-  font-weight: 500;
-}
-
-/* DM Chat Input */
-.chatInputRightIcons {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-right: 12px;
-}
-
-.chatInputIconBtn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.15s;
-}
-
-.chatInputIconBtn:hover {
+  font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* DM Right Profile Sidebar */
-.dmProfileSidebar {
-  width: 340px;
-  min-width: 340px;
-  background: var(--bg-base);
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
-
-.dmProfileSidebar::-webkit-scrollbar {
-  width: 6px;
-}
-.dmProfileSidebar::-webkit-scrollbar-thumb {
-  background: var(--bg-raised);
-  border-radius: 3px;
-}
-
-.profileBanner {
-  height: 120px;
-  background: var(--accent-gradient);
-  position: relative;
-}
-
-.profileAvatarWrapper {
-  position: absolute;
-  bottom: -36px;
-  left: 16px;
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  background: var(--bg-base);
-  padding: 6px;
-}
-
-.profileAvatarLarge {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: var(--bg-raised);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 24px;
-  font-weight: 700;
-}
-
-.profileStatusDotLarge {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--success);
-  border: 3px solid var(--bg-base);
-}
-
-.profileContent {
-  padding: 48px 16px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.profileHeader {
-  background: var(--bg-surface);
-  border-radius: 8px;
-  padding: 12px;
-  border: 1px solid var(--border);
-}
-
-.profileName {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 2px;
-}
-
-.profileUsername {
-  font-size: 14px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.profileBadges {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.profileBadge {
-  background: var(--bg-raised);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.profileSection {
-  background: var(--bg-surface);
-  border-radius: 8px;
-  padding: 12px;
-  border: 1px solid var(--border);
-}
-
-.profileSectionTitle {
+.fileCardSize {
   font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--text-primary);
-  margin-bottom: 8px;
+  color: var(--text-muted);
 }
 
-.profileSectionContent {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-
-.gameCollection {
+.fileCardDownload {
+  color: var(--text-muted);
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.gameIcon {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  background: var(--bg-raised);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.fullProfileLink {
-  text-align: center;
-  margin-top: auto;
-  padding-top: 16px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  cursor: pointer;
   transition: color 0.15s;
 }
 
-.fullProfileLink:hover {
+.fileCard:hover .fileCardDownload {
+  color: var(--accent-1);
+}
+
+/* ═══════════════════════════════════════════
+   FILE SHARING — UPLOAD PREVIEW BADGE
+   (shown above the chat input for non-image files)
+   ═══════════════════════════════════════════ */
+.filePreviewBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  max-width: 300px;
+}
+
+.filePreviewName {
+  font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.filePreviewSize {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
 }

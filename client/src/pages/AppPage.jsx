@@ -147,6 +147,7 @@ export default function AppPage() {
   // Attachment State
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [attachmentPreview, setAttachmentPreview] = useState(null);
+  const [attachmentMeta, setAttachmentMeta] = useState(null); // { name, size, type }
   const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -502,64 +503,52 @@ export default function AppPage() {
 
     try {
       setIsSending(true);
-      let finalAttachmentUrl = null;
+      let finalAttachmentUrl  = null;
       let finalAttachmentName = null;
-      let finalAttachmentMimeType = null;
+      let finalAttachmentSize = null;
+      let finalAttachmentType = null;
 
-      // If there's an attachment, upload it first
+      // Step 1: upload the file if one was selected
       if (attachmentFile) {
         const formData = new FormData();
-        formData.append("attachment", attachmentFile);
+        formData.append("file", attachmentFile); // field must match multer upload.single("file")
 
         const uploadRes = await fetch(`${API}/upload`, {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`
-            // Do NOT set Content-Type; FormData sets it with boundary
-          },
-          body: formData
+          headers: { Authorization: `Bearer ${token}` }, // NO Content-Type — FormData sets boundary
+          body: formData,
         });
 
         if (!uploadRes.ok) {
-          const errData = await uploadRes.json();
-          alert(`Attachment upload failed: ${errData.error}`);
+          const errData = await uploadRes.json().catch(() => ({}));
+          alert(`Upload failed: ${errData.error || "Unknown error"}`);
           setIsSending(false);
-          return; // Abort sending
+          return;
         }
 
         const uploadData = await uploadRes.json();
-        finalAttachmentUrl = uploadData.url;
-        finalAttachmentName = uploadData.originalName || attachmentFile.name;
-        finalAttachmentMimeType = uploadData.mimeType || attachmentFile.type || null;
+        finalAttachmentUrl  = uploadData.url;
+        finalAttachmentName = uploadData.originalName;
+        finalAttachmentSize = uploadData.size;
+        finalAttachmentType = uploadData.resourceType; // "image" | "video" | "raw"
       }
 
-      if (isDmView) {
-        await fetch(`${API}/dm/${selectedDmFriend.id}/messages`, {
+      // Step 2: post the message with attachment metadata
+      await fetch(
+        `${API}/servers/${activeServer}/channels/${activeChannel}/messages`,
+        {
           method: "POST",
           headers: authHeaders(token),
           body: JSON.stringify({
-            content: msgInput,
-            attachmentUrl: finalAttachmentUrl,
-            attachmentName: finalAttachmentName || null,
-            attachmentMimeType: finalAttachmentMimeType || null,
+            content:        msgInput,
+            attachmentUrl:  finalAttachmentUrl,
+            attachmentName: finalAttachmentName,
+            attachmentSize: finalAttachmentSize,
+            attachmentType: finalAttachmentType,
           }),
-        });
-        fetchDmMessages();
-      } else {
-        await fetch(
-          `${API}/servers/${activeServer}/channels/${activeChannel}/messages`,
-          {
-            method: "POST",
-            headers: authHeaders(token),
-            body: JSON.stringify({
-              content: msgInput,
-              attachmentUrl: finalAttachmentUrl,
-              attachmentName: finalAttachmentName || null,
-              attachmentMimeType: finalAttachmentMimeType || null,
-            }),
-          }
-        );
-      }
+        }
+      );
+
       setMsgInput("");
       cancelAttachment();
     } catch (err) {
@@ -628,24 +617,19 @@ export default function AppPage() {
 
   const handleAttachmentChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
-        alert("File is too large. Max size is 10MB.");
-        e.target.value = null;
-        return;
-      }
-      if (attachmentPreview) {
-        URL.revokeObjectURL(attachmentPreview);
-      }
-      setAttachmentFile(file);
-      setAttachmentPreview(
-        file.type.startsWith("image/")
-          ? URL.createObjectURL(file)
-          : null
-      );
+    if (!file) return;
+
+    setAttachmentFile(file);
+    setAttachmentMeta({ name: file.name, size: file.size, type: file.type });
+
+    // Only generate an object URL preview for images
+    if (file.type.startsWith("image/")) {
+      setAttachmentPreview(URL.createObjectURL(file));
+    } else {
+      setAttachmentPreview(null); // non-image: show name in the preview bar instead
     }
-    // reset input so the same file over and over triggers change
-    e.target.value = null;
+
+    e.target.value = null; // allow re-selecting the same file
   };
 
   const cancelAttachment = () => {
@@ -654,6 +638,53 @@ export default function AppPage() {
     }
     setAttachmentFile(null);
     setAttachmentPreview(null);
+    setAttachmentMeta(null);
+  };
+
+  // ── Helper: human-readable file size ──
+  const formatFileSize = (bytes) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  // ── Helper: resolve attachment type from stored value OR Cloudinary URL ──
+  // Cloudinary URLs contain /image/upload/, /video/upload/, or /raw/upload/
+  // This is the fallback for old messages that were saved before attachmentType existed.
+  const resolveAttachmentType = (msg) => {
+    if (msg.attachmentType) return msg.attachmentType; // trust stored value first
+    const url = msg.attachmentUrl || "";
+    if (url.includes("/image/upload/")) return "image";
+    if (url.includes("/video/upload/")) return "video";
+    if (url.includes("/raw/upload/"))   return "raw";
+    if (/\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?|$)/i.test(url)) return "image";
+    if (/\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(url)) return "video";
+    return "image";
+  };
+
+  // ── Helper: force-download any file via fetch + Blob ──
+  // Raw Cloudinary files don't support URL transformations (images-only),
+  // so we fetch the bytes, create a local blob URL, then trigger a click
+  // on a hidden <a download> element. Works for PDFs, zips, docs, etc.
+  const handleFileDownload = async (e, url, filename) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename || 'download';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (err) {
+      console.error('Download failed, opening in tab:', err);
+      window.open(url, '_blank'); // fallback
+    }
   };
 
   // ── Logout ──
@@ -720,7 +751,14 @@ export default function AppPage() {
   };
 
   const channels = serverData?.channels || [];
-  const members = serverData?.membersData || [];
+  // Deduplicate members by userId — same user can appear multiple times if they
+  // connected with multiple sockets or the backend returned duplicate rows.
+  const members = Object.values(
+    (serverData?.membersData || []).reduce((acc, m) => {
+      if (!acc[m.id]) acc[m.id] = m;
+      return acc;
+    }, {})
+  );
   const currentServer = servers.find((s) => s.id === activeServer);
   const activeChannelObj = channels.find((c) => c.id === activeChannel);
   const activeChannelName = activeChannelObj?.name || "";
@@ -1580,24 +1618,65 @@ export default function AppPage() {
                               {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
-                          {msg.content && <p className={styles.msgBody}>{msg.content}</p>}
-                          {msg.attachmentUrl && (
-                            <div className={styles.msgAttachmentWrap}>
-                              {isImageAttachment(msg.attachmentMimeType, msg.attachmentUrl) ? (
-                                <img src={msg.attachmentUrl} alt="attachment" className={styles.msgAttachment} />
-                              ) : (
-                                <a
-                                  href={msg.attachmentUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className={styles.fileAttachmentLink}
-                                >
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                                  <span>{msg.attachmentName || "Download attachment"}</span>
-                                </a>
-                              )}
-                            </div>
-                          )}
+                          {msg.content && <p className={styles.msgBody} style={{ fontSize: 'var(--chat-font-size, 14px)', margin: '2px 0 0' }}>{msg.content}</p>}
+
+                          {/* ─ Attachment Renderer ─ */}
+                          {msg.attachmentUrl && (() => {
+                            const aType = resolveAttachmentType(msg);
+                            return (
+                              <div className={styles.msgAttachmentWrap}>
+
+                                {/* Image */}
+                                {aType === "image" && (
+                                  <img
+                                    src={msg.attachmentUrl}
+                                    alt={msg.attachmentName || "attachment"}
+                                    className={styles.msgAttachment}
+                                    onClick={() => window.open(msg.attachmentUrl, "_blank")}
+                                    style={{ cursor: "pointer" }}
+                                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                  />
+                                )}
+
+                                {/* Video */}
+                                {aType === "video" && (
+                                  <video
+                                    src={msg.attachmentUrl}
+                                    controls
+                                    className={styles.msgVideo}
+                                    style={{ maxWidth: "400px", maxHeight: "280px", borderRadius: "8px", marginTop: "6px" }}
+                                  />
+                                )}
+
+                                {/* Generic file download card (PDFs, docs, zips, etc.) */}
+                                {aType === "raw" && (
+                                  <a
+                                    href={msg.attachmentUrl}
+                                    onClick={(e) => handleFileDownload(e, msg.attachmentUrl, msg.attachmentName)}
+                                    className={styles.fileCard}
+                                  >
+                                    <div className={styles.fileCardIcon}>
+                                      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/>
+                                      </svg>
+                                    </div>
+                                    <div className={styles.fileCardInfo}>
+                                      <span className={styles.fileCardName}>{msg.attachmentName || "File"}</span>
+                                      {msg.attachmentSize && (
+                                        <span className={styles.fileCardSize}>{formatFileSize(msg.attachmentSize)}</span>
+                                      )}
+                                    </div>
+                                    <div className={styles.fileCardDownload}>
+                                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                                      </svg>
+                                    </div>
+                                  </a>
+                                )}
+
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     )
@@ -1607,27 +1686,28 @@ export default function AppPage() {
 
                 {/* Message input */}
                 <div className={styles.chatInputContainer}>
-                  {attachmentPreview && (
+                  {/* Attachment preview (image or file name badge) */}
+                  {attachmentFile && (
                     <div className={styles.attachmentPreviewWrap}>
-                      <img src={attachmentPreview} alt="preview" className={styles.attachmentPreviewImg} />
-                      <button type="button" className={styles.cancelAttachmentBtn} onClick={cancelAttachment}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                      </button>
-                    </div>
-                  )}
-                  {!attachmentPreview && attachmentFile && (
-                    <div className={styles.attachmentPreviewWrap}>
-                      <div className={styles.filePreviewRow}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
-                        <span className={styles.filePreviewName}>{attachmentFile.name}</span>
-                      </div>
+                      {attachmentPreview ? (
+                        <img src={attachmentPreview} alt="preview" className={styles.attachmentPreviewImg} />
+                      ) : (
+                        <div className={styles.filePreviewBadge}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/>
+                          </svg>
+                          <span className={styles.filePreviewName}>{attachmentMeta?.name}</span>
+                          <span className={styles.filePreviewSize}>{formatFileSize(attachmentMeta?.size)}</span>
+                        </div>
+                      )}
                       <button type="button" className={styles.cancelAttachmentBtn} onClick={cancelAttachment}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                       </button>
                     </div>
                   )}
                   <form className={styles.chatInputBar} onSubmit={sendMessage}>
-                    <input type="file" style={{ display: 'none' }} ref={fileInputRef} onChange={handleAttachmentChange} />
+                    {/* Accept all file types; server enforces 25 MB limit */}
+                    <input type="file" style={{ display: 'none' }} ref={fileInputRef} onChange={handleAttachmentChange} accept="*" />
                     <button type="button" className={styles.addAttachmentBtn} onClick={() => fileInputRef.current?.click()} disabled={isSending}>
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
                     </button>

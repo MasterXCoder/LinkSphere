@@ -30,11 +30,24 @@ const messageSchema = new mongoose.Schema({
   },
   attachmentName: {
     type: String,
+<<<<<<< HEAD
     default: null,
   },
   attachmentMimeType: {
     type: String,
     default: null,
+=======
+    default: null, // original filename (e.g. "report.pdf")
+  },
+  attachmentSize: {
+    type: Number,
+    default: null, // bytes
+  },
+  attachmentType: {
+    type: String,
+    enum: ["image", "video", "raw"],
+    default: null, // drives client-side rendering — null means no attachment
+>>>>>>> 4b1e7ad76bed14de00ffc268ba9d781e4f1209d1
   },
   type: {
     type: String,
