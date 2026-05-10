@@ -7,7 +7,10 @@ import EditServerModal from '../components/EditServerModal';
 
 import CallModal from '../components/CallModal';
 import styles from "./AppPage.module.css";
+import callStyles from "../components/CallModal.module.css";
 import UserSettings from "./UserSettings";
+import useVoiceChannel from '../hooks/useVoiceChannel';
+import { Mic, MicOff, PhoneOff, Video, VideoOff, Monitor, MonitorOff, Phone } from 'lucide-react';
 
 const API = "/api";
 const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -54,13 +57,15 @@ export default function AppPage() {
       setSocket(newSocket);
 
       // Call events
-      newSocket.on("call-incoming", ({ signal, from, callType: incomingCallType, callerName }) => {
+      newSocket.on("call-incoming", ({ signal, from, callType: incomingCallType, callerName, callerAvatar, isVoiceChannel }) => {
+        if (isVoiceChannel) return; // Handled by useVoiceChannel hook
         const members = serverDataRef.current?.membersData || [];
         const caller = members.find(m => m.socketId === from);
         setTargetUser({
           id: caller?.id,
           socketId: from,
-          username: caller?.username || callerName || 'Unknown'
+          username: caller?.username || callerName || 'Unknown',
+          avatarUrl: caller?.avatarUrl || callerAvatar
         });
         setIncomingCall(signal);
         setCallType(incomingCallType || 'audio');
@@ -108,6 +113,14 @@ export default function AppPage() {
         });
       });
 
+      newSocket.on("voice-users-update", ({ channelId, users }) => {
+        setVoiceUsers(prev => ({ ...prev, [channelId]: users }));
+      });
+
+      newSocket.on("force-disconnect-voice", () => {
+        setJoinedVoiceChannel(null);
+      });
+
       return () => newSocket.close();
     }
   }, [token]);
@@ -133,6 +146,10 @@ export default function AppPage() {
   // Channel Creation State
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelType, setNewChannelType] = useState("text");
+
+  const [voiceUsers, setVoiceUsers] = useState({});
+  const [joinedVoiceChannel, setJoinedVoiceChannel] = useState(null);
 
   const [showServerMenu, setShowServerMenu] = useState(false);
   const [toast, setToast] = useState("");
@@ -156,11 +173,9 @@ export default function AppPage() {
   const [callType, setCallType] = useState('audio');
   const [targetUser, setTargetUser] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
-  const isImageAttachment = (mimeType = "", url = "") => {
-    if (mimeType && mimeType.startsWith("image/")) return true;
-    return /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
-  };
 
+  // Use Voice Channel Hook
+  const { remoteStreams, localStream, speakingUsers, isVideoOn, isScreenSharing, toggleVideo, toggleScreenShare } = useVoiceChannel(socket, joinedVoiceChannel, isMuted, auth?.user);
 
   // Friend system state
   const [activeHomeTab, setActiveHomeTab] = useState('addFriend');
@@ -302,11 +317,12 @@ export default function AppPage() {
       const res = await fetch(`${API}/servers/${activeServer}/channels`, {
         method: "POST",
         headers: authHeaders(token),
-        body: JSON.stringify({ name: newChannelName, type: "text" }),
+        body: JSON.stringify({ name: newChannelName, type: newChannelType }),
       });
 
       if (res.ok) {
         setNewChannelName("");
+        setNewChannelType("text");
         setIsChannelModalOpen(false);
         // Re-fetch server data to show the new channel in list
         const resData = await fetch(`${API}/servers/${activeServer}`, { headers: authHeaders(token) });
@@ -355,6 +371,23 @@ export default function AppPage() {
     }
   };
 
+  const handleJoinVoiceChannel = (channelId) => {
+    if (isCallModalOpen) {
+      alert('Please end your current private call before joining a voice channel.');
+      return;
+    }
+    if (joinedVoiceChannel) {
+      socket?.emit("leave-voice", { channelId: joinedVoiceChannel });
+    }
+    setJoinedVoiceChannel(channelId);
+  };
+
+  const handleDisconnectVoice = () => {
+    if (joinedVoiceChannel) {
+      socket?.emit("leave-voice", { channelId: joinedVoiceChannel });
+      setJoinedVoiceChannel(null);
+    }
+  };
 
   // ── Fetch user's servers ──
   const fetchServers = useCallback(async () => {
@@ -534,7 +567,7 @@ export default function AppPage() {
       }
 
       // Step 2: post the message with attachment metadata
-      const endpoint = isDmView 
+      const endpoint = isDmView
         ? `${API}/dm/${selectedDmFriend.id}/messages`
         : `${API}/servers/${activeServer}/channels/${activeChannel}/messages`;
 
@@ -600,6 +633,12 @@ export default function AppPage() {
       alert('Cannot call yourself');
       return;
     }
+
+    // EXCLUSIVITY: Disconnect voice channel if starting private call
+    if (joinedVoiceChannel) {
+      handleDisconnectVoice();
+    }
+
     await logCallStartEvent(type);
     setTargetUser(targetMember);
     setCallType(type);
@@ -964,7 +1003,7 @@ export default function AppPage() {
             </div>
             <div className={styles.scrollSection}>
               <div className={styles.dmNavList}>
-                <div 
+                <div
                   className={`${styles.navItem} ${!selectedDmFriend ? styles.activeNavItem : ""}`}
                   onClick={() => setSelectedDmFriend(null)}
                 >
@@ -1044,8 +1083,8 @@ export default function AppPage() {
                 {serverData?.ownerId === userId && (
                   <button
                     className={styles.addChannelBtn}
-                    onClick={() => setIsChannelModalOpen(true)}
-                    title="Create Channel"
+                    onClick={() => { setIsChannelModalOpen(true); setNewChannelType("text"); }}
+                    title="Create Text Channel"
                   >
                     +
                   </button>
@@ -1079,8 +1118,125 @@ export default function AppPage() {
                 </button>
               ))}
 
+              <div className={styles.categoryHeader} style={{ marginTop: '16px' }}>
+                <span>Voice Channels</span>
+                {/* NEW: Add Channel Button - only for server owner */}
+                {serverData?.ownerId === userId && (
+                  <button
+                    className={styles.addChannelBtn}
+                    onClick={() => { setIsChannelModalOpen(true); setNewChannelType("voice"); }}
+                    title="Create Voice Channel"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
+              {channels.filter(ch => ch.type === "voice").map((ch) => (
+                <div key={ch.id}>
+                  <button
+                    className={`${styles.channel} ${activeChannel === ch.id ? styles.activeChannel : ""}`}
+                    onClick={() => setActiveChannel(ch.id)}
+                  >
+                    <div className={styles.channelLeft}>
+                      <span className={styles.hash}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="22" /></svg>
+                      </span>
+                      {ch.name}
+                    </div>
+                    <div className={styles.channelRight}>
+                      {/* Open Chat (Speech Bubble) */}
+                      <svg
+                        onClick={(e) => { e.stopPropagation(); setActiveChannel(ch.id); }}
+                        className={styles.channelActionIcon}
+                        width="16" height="16" viewBox="0 0 24 24" fill="currentColor"
+                        title="Open Chat"
+                      >
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                      </svg>
+
+                      {/* Create Invite (Person +) */}
+                      <svg
+                        onClick={(e) => { e.stopPropagation(); handleCopyInvite(); }}
+                        className={styles.channelActionIcon}
+                        width="16" height="16" viewBox="0 0 24 24" fill="currentColor"
+                        title="Create Invite"
+                      >
+                        <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                      </svg>
+
+                      {/* Delete Channel - Only for Owner */}
+                      {serverData?.ownerId === userId && (
+                        <svg
+                          onClick={(e) => handleDeleteChannel(e, ch.id)}
+                          className={styles.channelDeleteIcon}
+                          width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                          title="Delete Channel"
+                        >
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          <line x1="10" y1="11" x2="10" y2="17"></line>
+                          <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                      )}
+                    </div>
+                  </button>
+                  {/* Voice Users List */}
+                  {(voiceUsers[ch.id] || []).map((u, i) => (
+                    <div key={`vu-${u.id || i}`} className={styles.voiceUserRow}>
+                      <div className={styles.voiceUserAvatar} style={{
+                        border: speakingUsers[u.socketId] ? '2px solid #57f287' : 'none',
+                        backgroundImage: u.avatarUrl ? `url(${u.avatarUrl})` : 'none',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        color: u.avatarUrl ? 'transparent' : 'inherit'
+                      }}>
+                        {!u.avatarUrl && (u.username?.charAt(0).toUpperCase() || '?')}
+                      </div>
+                      <span className={styles.voiceUserName}>{u.username || 'User'}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+
             </section>
           </>
+        )}
+        {/* Voice Connected Panel (when joined) */}
+        {joinedVoiceChannel && (
+          <div className={callStyles.voiceConnectedPanel} style={{ position: 'static', width: '100%', borderRadius: 0, borderBottom: '1px solid var(--bg-deep)' }}>
+            <div className={callStyles.voiceConnectedHeader}>
+              <div className={callStyles.voiceConnectedHeaderLeft} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className={callStyles.voiceConnectedSignalBox}>
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                    <path d="M11 2.008C11 1.452 11.448 1 12 1c5.523 0 10 4.477 10 10s-4.477 10-10 10c-.552 0-1-.448-1-1v-1.008a8.001 8.001 0 0 1-7-7.992V11c0-.552.448-1 1-1h1.008a6.001 6.001 0 0 0 5.992 5.992V17c0 .552.448 1 1 1a4 4 0 0 0 4-4c0-.552-.448-1-1-1h-1.008a2.001 2.001 0 0 1-1.992-1.992V11c0-.552.448-1 1-1A4 4 0 0 0 11 14v1.008zM12 4a6 6 0 0 1 6 6h-2a4 4 0 0 0-4-4V4zM4.27 3.518A9.965 9.965 0 0 0 2 11v2a9.965 9.965 0 0 0 2.27 6.482l1.414-1.414A7.971 7.971 0 0 1 4 13v-2c0-1.84.62-3.535 1.684-4.896L4.27 3.518z" />
+                  </svg>
+                </div>
+                <div className={callStyles.voiceConnectedText}>
+                  <div className={callStyles.voiceConnectedStatus}>Voice Connected</div>
+                  <div className={callStyles.voiceConnectedChannel}>
+                    {serverData?.name || 'Server'} / {channels.find(c => c.id === joinedVoiceChannel)?.name}
+                  </div>
+                </div>
+              </div>
+              <div className={callStyles.voiceConnectedHeaderRight}>
+                <button className={callStyles.disconnectBtn} onClick={handleDisconnectVoice} title="Disconnect">
+                  <PhoneOff size={20} />
+                </button>
+              </div>
+            </div>
+            <div className={callStyles.voiceConnectedActions}>
+              <button className={`${callStyles.panelBtn} ${isMuted ? callStyles.active : ''}`} onClick={() => setIsMuted(!isMuted)} title={isMuted ? "Unmute" : "Mute"}>
+                {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+              </button>
+              <button className={`${callStyles.panelBtn} ${isDeafened ? callStyles.active : ''}`} onClick={() => setIsDeafened(!isDeafened)} title={isDeafened ? "Undeafen" : "Deafen"}>
+                {isDeafened ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.9 13.5a10.02 10.02 0 0 0-2.43-8.83M5.1 10.5A10 10 0 0 0 12 22"></path><path d="M9 18a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3"></path><path d="M15 12a3 3 0 0 1 3 3v2.85"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+                )}
+              </button>
+            </div>
+          </div>
         )}
         <div id="voice-controls-portal"></div>
         <UserInfoBar />
@@ -1117,27 +1273,27 @@ export default function AppPage() {
                             if (!onlineUsers[selectedDmFriend.id]) return alert('User is not online');
                             startCall({ ...selectedDmFriend, socketId: onlineUsers[selectedDmFriend.id] }, 'audio');
                           }}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z" /></svg>
                           </button>
                           <button className={styles.dmHeaderIconBtn} title="Start Video Call" onClick={() => {
                             if (!onlineUsers[selectedDmFriend.id]) return alert('User is not online');
                             startCall({ ...selectedDmFriend, socketId: onlineUsers[selectedDmFriend.id] }, 'video');
                           }}>
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" /></svg>
                           </button>
                           <button className={styles.dmHeaderIconBtn} title="Pinned Messages">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11V5.5C16 3.57 14.43 2 12.5 2S9 3.57 9 5.5V11L7 13v2h4v6h2v-6h4v-2l-2-2z"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11V5.5C16 3.57 14.43 2 12.5 2S9 3.57 9 5.5V11L7 13v2h4v6h2v-6h4v-2l-2-2z" /></svg>
                           </button>
                           <button className={styles.dmHeaderIconBtn} title="Add Friends to DM">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" /></svg>
                           </button>
                           <button className={styles.dmHeaderIconBtn} title="User Profile">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" /></svg>
                           </button>
                         </div>
                         <div className={styles.dmSearchBar}>
                           <input type="text" className={styles.dmSearchInput} placeholder="Search" />
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{color: 'var(--text-muted)'}}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ color: 'var(--text-muted)' }}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
                         </div>
                       </div>
                     </>
@@ -1182,7 +1338,7 @@ export default function AppPage() {
                               </svg>
                               3 Mutual Servers
                             </div>
-                            <span style={{color: 'var(--text-muted)'}}>•</span>
+                            <span style={{ color: 'var(--text-muted)' }}>•</span>
                             <button className={styles.dmEmptyActionBtn}>Remove Friend</button>
                             <button className={styles.dmEmptyActionBtn}>Block</button>
                           </div>
@@ -1326,16 +1482,16 @@ export default function AppPage() {
                         />
                         <div className={styles.chatInputRightIcons}>
                           <button type="button" className={styles.chatInputIconBtn} title="Gift">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12s4.48 10 10 10 10-4.48 10-10zm-11 5v-4H7l4-5v4h4l-4 5z"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12s4.48 10 10 10 10-4.48 10-10zm-11 5v-4H7l4-5v4h4l-4 5z" /></svg>
                           </button>
                           <button type="button" className={styles.chatInputIconBtn} title="GIF">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.5 9H13v6h-1.5zM9 9H6c-.6 0-1 .5-1 1v4c0 .5.4 1 1 1h3c.6 0 1-.5 1-1v-2H8.5v1.5h-1.5v-3H10V10c0-.5-.4-1-1-1zm10 1.5V9h-4.5v6H16v-2h2v-1.5h-2v-1h3z"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.5 9H13v6h-1.5zM9 9H6c-.6 0-1 .5-1 1v4c0 .5.4 1 1 1h3c.6 0 1-.5 1-1v-2H8.5v1.5h-1.5v-3H10V10c0-.5-.4-1-1-1zm10 1.5V9h-4.5v6H16v-2h2v-1.5h-2v-1h3z" /></svg>
                           </button>
                           <button type="button" className={styles.chatInputIconBtn} title="Sticker">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" /></svg>
                           </button>
                           <button type="button" className={styles.chatInputIconBtn} title="Emoji">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" /></svg>
                           </button>
                           <button type="submit" className={styles.sendBtn} disabled={(!msgInput.trim() && !attachmentFile) || isSending} style={{ marginLeft: 0 }}>
                             {isSending ? (
@@ -1386,9 +1542,9 @@ export default function AppPage() {
                         <h3 className={styles.profileSectionTitle}>Game Collection</h3>
                         <div className={styles.gameCollection}>
                           <div className={styles.gameIcon} style={{ fontSize: '13px', fontWeight: 'bold' }}>33</div>
-                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg></div>
-                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg></div>
-                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" /></svg></div>
+                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" /></svg></div>
+                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg></div>
                         </div>
                       </div>
 
@@ -1397,195 +1553,195 @@ export default function AppPage() {
                   </aside>
                 </>
               ) : (
-              <>
-              <div className={styles.friendsMain}>
-                {/* ── Add Friend Tab ── */}
-                {activeHomeTab === 'addFriend' && (
-                  <>
-                    <div className={styles.addFriendSection}>
-                      <div className={styles.addFriendHeader}>
-                        <div>
-                          <h2 className={styles.addFriendTitle}>Add Friend</h2>
-                          <p className={styles.addFriendDesc}>You can add friends with their LinkSphere username.</p>
+                <>
+                  <div className={styles.friendsMain}>
+                    {/* ── Add Friend Tab ── */}
+                    {activeHomeTab === 'addFriend' && (
+                      <>
+                        <div className={styles.addFriendSection}>
+                          <div className={styles.addFriendHeader}>
+                            <div>
+                              <h2 className={styles.addFriendTitle}>Add Friend</h2>
+                              <p className={styles.addFriendDesc}>You can add friends with their LinkSphere username.</p>
+                            </div>
+                          </div>
+                          <div className={styles.addFriendInputBox}>
+                            <input
+                              type="text"
+                              className={styles.friendInput}
+                              placeholder="Enter a username"
+                              value={friendInput}
+                              onChange={(e) => setFriendInput(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleSendFriendRequest()}
+                            />
+                            <button
+                              className={`${styles.sendRequestBtn} ${friendInput ? styles.active : ""}`}
+                              onClick={handleSendFriendRequest}
+                              disabled={!friendInput.trim()}
+                            >
+                              Send Friend Request
+                            </button>
+                          </div>
+                          {friendRequestMsg && (
+                            <div className={`${styles.friendFeedback} ${friendRequestStatus === 'success' ? styles.feedbackSuccess : styles.feedbackError}`}>
+                              {friendRequestMsg}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      <div className={styles.addFriendInputBox}>
-                        <input
-                          type="text"
-                          className={styles.friendInput}
-                          placeholder="Enter a username"
-                          value={friendInput}
-                          onChange={(e) => setFriendInput(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleSendFriendRequest()}
-                        />
-                        <button
-                          className={`${styles.sendRequestBtn} ${friendInput ? styles.active : ""}`}
-                          onClick={handleSendFriendRequest}
-                          disabled={!friendInput.trim()}
-                        >
-                          Send Friend Request
-                        </button>
-                      </div>
-                      {friendRequestMsg && (
-                        <div className={`${styles.friendFeedback} ${friendRequestStatus === 'success' ? styles.feedbackSuccess : styles.feedbackError}`}>
-                          {friendRequestMsg}
+                        <div className={styles.otherPlaces}>
+                          <h2 className={styles.addFriendTitle}>Your Servers</h2>
+                          <p className={styles.addFriendDesc}>You are a member of {servers.length} server{servers.length !== 1 ? "s" : ""}.</p>
                         </div>
-                      )}
-                    </div>
-                    <div className={styles.otherPlaces}>
-                      <h2 className={styles.addFriendTitle}>Your Servers</h2>
-                      <p className={styles.addFriendDesc}>You are a member of {servers.length} server{servers.length !== 1 ? "s" : ""}.</p>
-                    </div>
-                  </>
-                )}
+                      </>
+                    )}
 
-                {/* ── All Friends Tab ── */}
-                {activeHomeTab === 'all' && (
-                  <div className={styles.friendListSection}>
-                    <div className={styles.friendListHeader}>All Friends — {friendsData.friends.length}</div>
-                    {friendsData.friends.length === 0 ? (
-                      <div className={styles.emptyFriendsMsg}>
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.3 }}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-                        <p>You don't have any friends yet. Send a friend request to get started!</p>
-                      </div>
-                    ) : (
-                      friendsData.friends.map(f => (
-                        <div key={f.id} className={styles.friendRow}>
-                          <div className={styles.friendRowLeft}>
-                            <div className={styles.friendAvatarWrap}>
-                              <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
-                                {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                    {/* ── All Friends Tab ── */}
+                    {activeHomeTab === 'all' && (
+                      <div className={styles.friendListSection}>
+                        <div className={styles.friendListHeader}>All Friends — {friendsData.friends.length}</div>
+                        {friendsData.friends.length === 0 ? (
+                          <div className={styles.emptyFriendsMsg}>
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.3 }}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                            <p>You don't have any friends yet. Send a friend request to get started!</p>
+                          </div>
+                        ) : (
+                          friendsData.friends.map(f => (
+                            <div key={f.id} className={styles.friendRow}>
+                              <div className={styles.friendRowLeft}>
+                                <div className={styles.friendAvatarWrap}>
+                                  <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
+                                    {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className={styles.friendDot} style={{ background: onlineUsers[f.id] ? '#23a559' : '#80848e' }}></div>
+                                </div>
+                                <div className={styles.friendInfo}>
+                                  <span className={styles.friendName}>{f.username}</span>
+                                  <span className={styles.friendStatusText}>{onlineUsers[f.id] ? 'Online' : 'Offline'}</span>
+                                </div>
                               </div>
-                              <div className={styles.friendDot} style={{ background: onlineUsers[f.id] ? '#23a559' : '#80848e' }}></div>
+                              <div className={styles.friendRowActions}>
+                                <button className={styles.friendActionBtn} title="Message" onClick={() => openFriendDm(f)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg></button>
+                                <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z" /></svg></button>
+                              </div>
                             </div>
-                            <div className={styles.friendInfo}>
-                              <span className={styles.friendName}>{f.username}</span>
-                              <span className={styles.friendStatusText}>{onlineUsers[f.id] ? 'Online' : 'Offline'}</span>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── Online Friends Tab ── */}
+                    {activeHomeTab === 'online' && (
+                      <div className={styles.friendListSection}>
+                        <div className={styles.friendListHeader}>Online — {friendsData.friends.filter(f => onlineUsers[f.id]).length}</div>
+                        {friendsData.friends.filter(f => onlineUsers[f.id]).length === 0 ? (
+                          <div className={styles.emptyFriendsMsg}>
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.3 }}><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                            <p>None of your friends are online right now.</p>
+                          </div>
+                        ) : (
+                          friendsData.friends.filter(f => onlineUsers[f.id]).map(f => (
+                            <div key={f.id} className={styles.friendRow}>
+                              <div className={styles.friendRowLeft}>
+                                <div className={styles.friendAvatarWrap}>
+                                  <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
+                                    {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className={styles.friendDot} style={{ background: '#23a559' }}></div>
+                                </div>
+                                <div className={styles.friendInfo}>
+                                  <span className={styles.friendName}>{f.username}</span>
+                                  <span className={styles.friendStatusText}>Online</span>
+                                </div>
+                              </div>
+                              <div className={styles.friendRowActions}>
+                                <button className={styles.friendActionBtn} title="Message" onClick={() => openFriendDm(f)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg></button>
+                                <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z" /></svg></button>
+                              </div>
                             </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── Pending Tab ── */}
+                    {activeHomeTab === 'pending' && (
+                      <div className={styles.friendListSection}>
+                        <div className={styles.friendListHeader}>Pending — {friendsData.incoming.length + friendsData.outgoing.length}</div>
+                        {friendsData.incoming.length === 0 && friendsData.outgoing.length === 0 ? (
+                          <div className={styles.emptyFriendsMsg}>
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.3 }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                            <p>No pending friend requests.</p>
                           </div>
-                          <div className={styles.friendRowActions}>
-                            <button className={styles.friendActionBtn} title="Message" onClick={() => openFriendDm(f)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
-                            <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg></button>
-                          </div>
-                        </div>
-                      ))
+                        ) : (
+                          <>
+                            {friendsData.incoming.map(f => (
+                              <div key={`in-${f.id}`} className={styles.friendRow}>
+                                <div className={styles.friendRowLeft}>
+                                  <div className={styles.friendAvatarWrap}>
+                                    <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
+                                      {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                                    </div>
+                                  </div>
+                                  <div className={styles.friendInfo}>
+                                    <span className={styles.friendName}>{f.username}</span>
+                                    <span className={styles.friendStatusText}>Incoming Friend Request</span>
+                                  </div>
+                                </div>
+                                <div className={styles.friendRowActions}>
+                                  <button className={`${styles.friendActionBtn} ${styles.friendActionAccept}`} title="Accept" onClick={() => handleAcceptFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></button>
+                                  <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Decline" onClick={() => handleDeclineFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg></button>
+                                </div>
+                              </div>
+                            ))}
+                            {friendsData.outgoing.map(f => (
+                              <div key={`out-${f.id}`} className={styles.friendRow}>
+                                <div className={styles.friendRowLeft}>
+                                  <div className={styles.friendAvatarWrap}>
+                                    <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
+                                      {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
+                                    </div>
+                                  </div>
+                                  <div className={styles.friendInfo}>
+                                    <span className={styles.friendName}>{f.username}</span>
+                                    <span className={styles.friendStatusText}>Outgoing Friend Request</span>
+                                  </div>
+                                </div>
+                                <div className={styles.friendRowActions}>
+                                  <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Cancel" onClick={() => handleCancelFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg></button>
+                                </div>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
 
-                {/* ── Online Friends Tab ── */}
-                {activeHomeTab === 'online' && (
-                  <div className={styles.friendListSection}>
-                    <div className={styles.friendListHeader}>Online — {friendsData.friends.filter(f => onlineUsers[f.id]).length}</div>
+                  {/* ── Active Now Sidebar ── */}
+                  <aside className={styles.activeNow}>
+                    <h3 className={styles.activeNowTitle}>Active Now</h3>
                     {friendsData.friends.filter(f => onlineUsers[f.id]).length === 0 ? (
-                      <div className={styles.emptyFriendsMsg}>
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.3 }}><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
-                        <p>None of your friends are online right now.</p>
+                      <div className={styles.emptyActiveCard}>
+                        <h4 className={styles.emptyActiveTitle}>It's quiet for now...</h4>
+                        <p className={styles.emptyActiveText}>When a friend starts an activity—like playing a game or hanging out on voice—we'll show it here!</p>
                       </div>
                     ) : (
-                      friendsData.friends.filter(f => onlineUsers[f.id]).map(f => (
-                        <div key={f.id} className={styles.friendRow}>
-                          <div className={styles.friendRowLeft}>
+                      <div className={styles.activeNowList}>
+                        {friendsData.friends.filter(f => onlineUsers[f.id]).map(f => (
+                          <div key={f.id} className={styles.activeNowItem}>
                             <div className={styles.friendAvatarWrap}>
                               <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
                                 {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
                               </div>
                               <div className={styles.friendDot} style={{ background: '#23a559' }}></div>
                             </div>
-                            <div className={styles.friendInfo}>
-                              <span className={styles.friendName}>{f.username}</span>
-                              <span className={styles.friendStatusText}>Online</span>
-                            </div>
-                          </div>
-                          <div className={styles.friendRowActions}>
-                            <button className={styles.friendActionBtn} title="Message" onClick={() => openFriendDm(f)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
-                            <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg></button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-
-                {/* ── Pending Tab ── */}
-                {activeHomeTab === 'pending' && (
-                  <div className={styles.friendListSection}>
-                    <div className={styles.friendListHeader}>Pending — {friendsData.incoming.length + friendsData.outgoing.length}</div>
-                    {friendsData.incoming.length === 0 && friendsData.outgoing.length === 0 ? (
-                      <div className={styles.emptyFriendsMsg}>
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ opacity: 0.3 }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                        <p>No pending friend requests.</p>
-                      </div>
-                    ) : (
-                      <>
-                        {friendsData.incoming.map(f => (
-                          <div key={`in-${f.id}`} className={styles.friendRow}>
-                            <div className={styles.friendRowLeft}>
-                              <div className={styles.friendAvatarWrap}>
-                                <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
-                                  {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
-                                </div>
-                              </div>
-                              <div className={styles.friendInfo}>
-                                <span className={styles.friendName}>{f.username}</span>
-                                <span className={styles.friendStatusText}>Incoming Friend Request</span>
-                              </div>
-                            </div>
-                            <div className={styles.friendRowActions}>
-                              <button className={`${styles.friendActionBtn} ${styles.friendActionAccept}`} title="Accept" onClick={() => handleAcceptFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg></button>
-                              <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Decline" onClick={() => handleDeclineFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg></button>
-                            </div>
+                            <span className={styles.activeNowName}>{f.username}</span>
                           </div>
                         ))}
-                        {friendsData.outgoing.map(f => (
-                          <div key={`out-${f.id}`} className={styles.friendRow}>
-                            <div className={styles.friendRowLeft}>
-                              <div className={styles.friendAvatarWrap}>
-                                <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
-                                  {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
-                                </div>
-                              </div>
-                              <div className={styles.friendInfo}>
-                                <span className={styles.friendName}>{f.username}</span>
-                                <span className={styles.friendStatusText}>Outgoing Friend Request</span>
-                              </div>
-                            </div>
-                            <div className={styles.friendRowActions}>
-                              <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Cancel" onClick={() => handleCancelFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg></button>
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* ── Active Now Sidebar ── */}
-              <aside className={styles.activeNow}>
-                <h3 className={styles.activeNowTitle}>Active Now</h3>
-                {friendsData.friends.filter(f => onlineUsers[f.id]).length === 0 ? (
-                  <div className={styles.emptyActiveCard}>
-                    <h4 className={styles.emptyActiveTitle}>It's quiet for now...</h4>
-                    <p className={styles.emptyActiveText}>When a friend starts an activity—like playing a game or hanging out on voice—we'll show it here!</p>
-                  </div>
-                ) : (
-                  <div className={styles.activeNowList}>
-                    {friendsData.friends.filter(f => onlineUsers[f.id]).map(f => (
-                      <div key={f.id} className={styles.activeNowItem}>
-                        <div className={styles.friendAvatarWrap}>
-                          <div className={styles.friendAvatar} style={{ backgroundImage: f.avatarUrl ? `url(${f.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: f.avatarUrl ? 'transparent' : 'inherit' }}>
-                            {!f.avatarUrl && f.username.charAt(0).toUpperCase()}
-                          </div>
-                          <div className={styles.friendDot} style={{ background: '#23a559' }}></div>
-                        </div>
-                        <span className={styles.activeNowName}>{f.username}</span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </aside>
-              </>
+                    )}
+                  </aside>
+                </>
               )}
             </div>
           </>
@@ -1593,7 +1749,11 @@ export default function AppPage() {
           <>
             <header className={styles.topHeader}>
               <div className={styles.headerLeft}>
-                <span className={styles.hash} style={{ marginRight: 8 }}>#</span>
+                <span className={styles.hash} style={{ marginRight: 8 }}>
+                  {activeChannelObj?.type === 'voice' ? (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="22" /></svg>
+                  ) : '#'}
+                </span>
                 <span className={styles.headerTitle}>{activeChannelName}</span>
               </div>
               <div className={styles.headerRight}>
@@ -1604,240 +1764,362 @@ export default function AppPage() {
               </div>
             </header>
 
-            <div className={styles.chatLayout}>
-              {/* Messages area */}
-              <div className={styles.chatArea}>
-                <div className={styles.messageList}>
-                  {messages.length === 0 && (
-                    <div className={styles.welcomeMsg}>
-                      <div className={styles.welcomeHash}>#</div>
-                      <h2 className={styles.welcomeTitle}>Welcome to #{activeChannelName}!</h2>
-                      <p className={styles.welcomeDesc}>This is the start of the #{activeChannelName} channel.</p>
-                    </div>
-                  )}
-                  {messages.map((msg) => (
-                    msg.type === "system" && msg.systemKind === "call_started" ? (
-                      <div key={msg.id} className={styles.callSystemMsg}>
-                        <div className={styles.callSystemIcon}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16.42v3.54a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 1.14 4.18 2 2 0 0 1 3.13 2h3.54a2 2 0 0 1 2 1.72c.12.89.35 1.76.68 2.59a2 2 0 0 1-.45 2.11L7.42 9.9a16 16 0 0 0 6.68 6.68l1.48-1.48a2 2 0 0 1 2.11-.45c.83.33 1.7.56 2.59.68A2 2 0 0 1 21 16.42z" /></svg>
-                        </div>
-                        <span className={styles.callSystemText}>{msg.content}</span>
-                        <span className={styles.msgTimestamp}>
-                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    ) : msg.type === "system" ? (
-                      <div key={msg.id} className={styles.systemMsg}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3" /></svg>
-                        <span>{msg.content}</span>
-                        <span className={styles.msgTimestamp}>
-                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    ) : (
-                      <div key={msg.id} className={styles.message}>
-                        <div className={styles.msgAvatarCircle} style={{
-                          background: msg.authorId === userId ? '#5865f2' : '#23a559',
-                          backgroundImage: msg.authorAvatarUrl ? `url(${msg.authorAvatarUrl})` : 'none',
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                          color: msg.authorAvatarUrl ? 'transparent' : 'inherit'
-                        }}>
-                          {!msg.authorAvatarUrl && ((msg.authorId === userId ? username : msg.authorName)?.charAt(0).toUpperCase() || "?")}
-                        </div>
-                        <div className={styles.msgContent}>
-                          <div className={styles.msgHeader}>
-                            <span className={styles.msgAuthor} style={{
-                              color: msg.authorId === userId ? '#949cf7' : '#57f287'
-                            }}>
-                              {msg.authorId === userId ? username : msg.authorName}
-                            </span>
-                            <span className={styles.msgTimestamp}>
-                              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          {msg.content && <p className={styles.msgBody} style={{ fontSize: 'var(--chat-font-size, 14px)', margin: '2px 0 0' }}>{msg.content}</p>}
-
-                          {/* ─ Attachment Renderer ─ */}
-                          {msg.attachmentUrl && (() => {
-                            const aType = resolveAttachmentType(msg);
-                            return (
-                              <div className={styles.msgAttachmentWrap}>
-
-                                {/* Image */}
-                                {aType === "image" && (
-                                  <img
-                                    src={msg.attachmentUrl}
-                                    alt={msg.attachmentName || "attachment"}
-                                    className={styles.msgAttachment}
-                                    onClick={() => window.open(msg.attachmentUrl, "_blank")}
-                                    style={{ cursor: "pointer" }}
-                                    onError={(e) => { e.currentTarget.style.display = "none"; }}
-                                  />
-                                )}
-
-                                {/* Video */}
-                                {aType === "video" && (
-                                  <video
-                                    src={msg.attachmentUrl}
-                                    controls
-                                    className={styles.msgVideo}
-                                    style={{ maxWidth: "400px", maxHeight: "280px", borderRadius: "8px", marginTop: "6px" }}
-                                  />
-                                )}
-
-                                {/* Generic file download card (PDFs, docs, zips, etc.) */}
-                                {aType === "raw" && (
-                                  <a
-                                    href={msg.attachmentUrl}
-                                    onClick={(e) => handleFileDownload(e, msg.attachmentUrl, msg.attachmentName)}
-                                    className={styles.fileCard}
-                                  >
-                                    <div className={styles.fileCardIcon}>
-                                      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
-                                      </svg>
-                                    </div>
-                                    <div className={styles.fileCardInfo}>
-                                      <span className={styles.fileCardName}>{msg.attachmentName || "File"}</span>
-                                      {msg.attachmentSize && (
-                                        <span className={styles.fileCardSize}>{formatFileSize(msg.attachmentSize)}</span>
-                                      )}
-                                    </div>
-                                    <div className={styles.fileCardDownload}>
-                                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
-                                      </svg>
-                                    </div>
-                                  </a>
-                                )}
-
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    )
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-
-                {/* Message input */}
-                <div className={styles.chatInputContainer}>
-                  {/* Attachment preview (image or file name badge) */}
-                  {attachmentFile && (
-                    <div className={styles.attachmentPreviewWrap}>
-                      {attachmentPreview ? (
-                        <img src={attachmentPreview} alt="preview" className={styles.attachmentPreviewImg} />
+            {activeChannelObj?.type === "voice" ? (
+              joinedVoiceChannel === activeChannel ? (
+                <div className={callStyles.mainVideoPortal} style={{ position: 'relative', height: '100%' }}>
+                  <div className={callStyles.callGrid}>
+                    {/* Local Tile */}
+                    <div className={`${callStyles.gridTile} ${speakingUsers[socket?.id] ? callStyles.isSpeakingVideo : ''}`}>
+                      {isVideoOn || isScreenSharing ? (
+                        <video
+                          ref={el => { if (el && el.srcObject !== localStream) el.srcObject = localStream; }}
+                          autoPlay
+                          playsInline
+                          muted
+                          className={callStyles.remoteVideo}
+                          style={isScreenSharing ? { objectFit: 'contain' } : { transform: 'scaleX(-1)' }}
+                        />
                       ) : (
-                        <div className={styles.filePreviewBadge}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
-                          </svg>
-                          <span className={styles.filePreviewName}>{attachmentMeta?.name}</span>
-                          <span className={styles.filePreviewSize}>{formatFileSize(attachmentMeta?.size)}</span>
+                        <div className={`${callStyles.tileAvatar} ${speakingUsers[socket?.id] ? callStyles.isSpeaking : ''}`} style={user?.avatarUrl ? { backgroundImage: `url(${user.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
+                          {!user?.avatarUrl && (user?.username?.charAt(0).toUpperCase() || '?')}
                         </div>
                       )}
-                      <button type="button" className={styles.cancelAttachmentBtn} onClick={cancelAttachment}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                      {!isVideoOn && !isScreenSharing && (
+                        <div className={callStyles.waitingOverlayAudio}>
+                          <span>Voice Connected</span>
+                        </div>
+                      )}
+                      <div className={callStyles.tileName} style={{ display: 'flex', alignItems: 'center' }}>
+                        {user?.username || 'You'} (You)
+                        {isMuted && <MicOff size={14} style={{ marginLeft: 6, color: '#f23f43' }} />}
+                      </div>
+                    </div>
+                    {/* Remote Tiles */}
+                    {(voiceUsers[activeChannel] || []).filter(u => u.id !== userId).map(u => {
+                      const remoteStream = remoteStreams[u.socketId];
+                      const activeVideoTracks = remoteStream ? remoteStream.getVideoTracks().filter(t => t.readyState === 'live' && !t.muted) : [];
+                      const hasVideo = activeVideoTracks.length > 0;
+                      return (
+                        <div key={u.id} className={`${callStyles.gridTile} ${speakingUsers[u.socketId] ? callStyles.isSpeakingVideo : ''}`}>
+                          {hasVideo ? (
+                            <video
+                              ref={el => { if (el && el.srcObject !== remoteStream) el.srcObject = remoteStream; }}
+                              autoPlay
+                              playsInline
+                              muted
+                              className={callStyles.remoteVideo}
+                            />
+                          ) : (
+                            <div className={`${callStyles.tileAvatar} ${speakingUsers[u.socketId] ? callStyles.isSpeaking : ''}`} style={u.avatarUrl ? { backgroundImage: `url(${u.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
+                              {!u.avatarUrl && (u.username?.charAt(0).toUpperCase() || '?')}
+                            </div>
+                          )}
+                          <div className={callStyles.tileName} style={{ display: 'flex', alignItems: 'center' }}>
+                            {u.username}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className={callStyles.bottomControls}>
+                    <div className={callStyles.controlGroup}>
+                      <button className={`${callStyles.controlBtn} ${isMuted ? callStyles.danger : ''}`} onClick={() => setIsMuted(!isMuted)} title={isMuted ? "Unmute" : "Mute"}>
+                        {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+                      </button>
+                      <button className={`${callStyles.controlBtn} ${!isVideoOn ? callStyles.danger : ''}`} onClick={toggleVideo} title="Camera">
+                        {!isVideoOn ? <VideoOff size={20} /> : <Video size={20} />}
                       </button>
                     </div>
-                  )}
-                  <form className={styles.chatInputBar} onSubmit={sendMessage}>
-                    {/* Accept all file types; server enforces 25 MB limit */}
-                    <input type="file" style={{ display: 'none' }} ref={fileInputRef} onChange={handleAttachmentChange} accept="*" />
-                    <button type="button" className={styles.addAttachmentBtn} onClick={() => fileInputRef.current?.click()} disabled={isSending}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                    </button>
-                    <input
-                      type="text"
-                      className={styles.chatInput}
-                      placeholder={`Message #${activeChannelName}`}
-                      value={msgInput}
-                      onChange={(e) => setMsgInput(e.target.value)}
-                      disabled={isSending}
-                    />
-                    <button type="submit" className={styles.sendBtn} disabled={(!msgInput.trim() && !attachmentFile) || isSending}>
-                      {isSending ? (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.spinning}><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
-                      ) : (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
-                      )}
-                    </button>
-                  </form>
-                </div>
-              </div>
 
-              {/* Members sidebar */}
-              <aside className={styles.membersSidebar}>
-                <div className={styles.membersHeader}>
-                  Members — {members.length}
-                </div>
-                {members.map((m) => (
-                  <div key={m.id} className={styles.memberItem}>
-                    <div className={styles.memberAvatarWrap}>
-                      <div className={styles.memberAvatar} style={{
-                        background: m.id === serverData?.ownerId ? '#5865f2' : '#23a559',
-                        backgroundImage: m.avatarUrl ? `url(${m.avatarUrl})` : 'none',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        color: m.avatarUrl ? 'transparent' : 'inherit'
-                      }}>
-                        {!m.avatarUrl && m.username.charAt(0).toUpperCase()}
-                      </div>
-                      <div
-                        className={styles.memberDot}
-                        style={{ background: onlineUsers[m.id] ? '#23a559' : '#80848e' }}
-                      ></div>
+                    <div className={callStyles.controlGroup}>
+                      <button className={`${callStyles.controlBtn} ${isScreenSharing ? callStyles.active : ''}`} onClick={toggleScreenShare} title="Share Your Screen">
+                        {isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
+                      </button>
+                      <button className={`${callStyles.controlBtn} ${isDeafened ? callStyles.danger : ''}`} onClick={() => setIsDeafened(!isDeafened)} title={isDeafened ? "Undeafen" : "Deafen"}>
+                        {isDeafened ? (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18.9 13.5a10.02 10.02 0 0 0-2.43-8.83M5.1 10.5A10 10 0 0 0 12 22"></path><path d="M9 18a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3"></path><path d="M15 12a3 3 0 0 1 3 3v2.85"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+                        )}
+                      </button>
                     </div>
-                    <span className={styles.memberName}>{m.username}</span>
-                    {m.id === serverData?.ownerId && (
-                      <span className={styles.ownerBadge}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="#faa61a"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z" /></svg>
-                      </span>
+
+                    <button className={`${callStyles.controlBtn} ${callStyles.endCallBtnBig}`} onClick={handleDisconnectVoice} title="Disconnect">
+                      <PhoneOff size={20} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.voiceChannelMainUI}>
+                  <div className={styles.starsOverlay}></div>
+                  <div className={styles.voiceChannelCenter}>
+                    <div className={styles.voiceChannelAvatars}>
+                      {(voiceUsers[activeChannel] || []).length > 0 && (
+                        (voiceUsers[activeChannel] || []).map((u, i) => (
+                          <div key={u.id || i} className={styles.voiceChannelAvatarLarge} style={u.avatarUrl ? { backgroundImage: `url(${u.avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : {}}>
+                            {!u.avatarUrl && (u.username?.charAt(0).toUpperCase() || '?')}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <h2 className={styles.voiceChannelName}>{activeChannelName}</h2>
+                    {(voiceUsers[activeChannel] || []).length > 0 ? (
+                      <p className={styles.voiceChannelSubtitle}>
+                        <strong style={{ color: 'var(--text-primary)' }}>{(voiceUsers[activeChannel] || []).map(u => u.username).join(", ")}</strong> {(voiceUsers[activeChannel] || []).length === 1 ? 'is' : 'are'} currently in voice
+                      </p>
+                    ) : (
+                      <p className={styles.voiceChannelSubtitle}>No one is currently in voice</p>
                     )}
-                    {/*call buttons - always show but disabled if offline*/}
-                    {(m.id !== userId) && (
-                      <div className={styles.memberActions}>
-                        <button
-                          className={styles.callBtn}
-                          onClick={() => {
-                            if (!onlineUsers[m.id]) {
-                              alert('User is not online');
-                              return;
-                            }
-                            startCall({ ...m, socketId: onlineUsers[m.id] }, 'audio');
-                          }}
-                          title={onlineUsers[m.id] ? "Audio call" : "User offline"}
-                          disabled={!onlineUsers[m.id]}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z" /></svg>
-                        </button>
-                        <button
-                          className={styles.callBtn}
-                          onClick={() => {
-                            if (!onlineUsers[m.id]) {
-                              alert('User is not online');
-                              return;
-                            }
-                            startCall({ ...m, socketId: onlineUsers[m.id] }, 'video');
-                          }}
-                          title={onlineUsers[m.id] ? "Video call" : "User offline"}
-                          disabled={!onlineUsers[m.id]}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" /></svg>
+                    <button className={styles.joinVoiceBtn} onClick={() => handleJoinVoiceChannel(activeChannel)}>Join Voice</button>
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className={styles.chatLayout}>
+                {/* Messages area */}
+                <div className={styles.chatArea}>
+                  <div className={styles.messageList}>
+                    {messages.length === 0 && (
+                      <div className={styles.welcomeMsg}>
+                        <div className={styles.welcomeHash}>#</div>
+                        <h2 className={styles.welcomeTitle}>Welcome to #{activeChannelName}!</h2>
+                        <p className={styles.welcomeDesc}>This is the start of the #{activeChannelName} channel.</p>
+                      </div>
+                    )}
+                    {messages.map((msg) => (
+                      msg.type === "system" && msg.systemKind === "call_started" ? (
+                        <div key={msg.id} className={styles.callSystemMsg}>
+                          <div className={styles.callSystemIcon}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16.42v3.54a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 1.14 4.18 2 2 0 0 1 3.13 2h3.54a2 2 0 0 1 2 1.72c.12.89.35 1.76.68 2.59a2 2 0 0 1-.45 2.11L7.42 9.9a16 16 0 0 0 6.68 6.68l1.48-1.48a2 2 0 0 1 2.11-.45c.83.33 1.7.56 2.59.68A2 2 0 0 1 21 16.42z" /></svg>
+                          </div>
+                          <span className={styles.callSystemText}>{msg.content}</span>
+                          <span className={styles.msgTimestamp}>
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      ) : msg.type === "system" ? (
+                        <div key={msg.id} className={styles.systemMsg}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3" /></svg>
+                          <span>{msg.content}</span>
+                          <span className={styles.msgTimestamp}>
+                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      ) : (
+                        <div key={msg.id} className={styles.message}>
+                          <div className={styles.msgAvatarCircle} style={{
+                            background: msg.authorId === userId ? '#5865f2' : '#23a559',
+                            backgroundImage: msg.authorAvatarUrl ? `url(${msg.authorAvatarUrl})` : 'none',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            color: msg.authorAvatarUrl ? 'transparent' : 'inherit'
+                          }}>
+                            {!msg.authorAvatarUrl && ((msg.authorId === userId ? username : msg.authorName)?.charAt(0).toUpperCase() || "?")}
+                          </div>
+                          <div className={styles.msgContent}>
+                            <div className={styles.msgHeader}>
+                              <span className={styles.msgAuthor} style={{
+                                color: msg.authorId === userId ? '#949cf7' : '#57f287'
+                              }}>
+                                {msg.authorId === userId ? username : msg.authorName}
+                              </span>
+                              <span className={styles.msgTimestamp}>
+                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            {msg.content && <p className={styles.msgBody} style={{ fontSize: 'var(--chat-font-size, 14px)', margin: '2px 0 0' }}>{msg.content}</p>}
+
+                            {/* ─ Attachment Renderer ─ */}
+                            {msg.attachmentUrl && (() => {
+                              const aType = resolveAttachmentType(msg);
+                              return (
+                                <div className={styles.msgAttachmentWrap}>
+
+                                  {/* Image */}
+                                  {aType === "image" && (
+                                    <img
+                                      src={msg.attachmentUrl}
+                                      alt={msg.attachmentName || "attachment"}
+                                      className={styles.msgAttachment}
+                                      onClick={() => window.open(msg.attachmentUrl, "_blank")}
+                                      style={{ cursor: "pointer" }}
+                                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                    />
+                                  )}
+
+                                  {/* Video */}
+                                  {aType === "video" && (
+                                    <video
+                                      src={msg.attachmentUrl}
+                                      controls
+                                      className={styles.msgVideo}
+                                      style={{ maxWidth: "400px", maxHeight: "280px", borderRadius: "8px", marginTop: "6px" }}
+                                    />
+                                  )}
+
+                                  {/* Generic file download card (PDFs, docs, zips, etc.) */}
+                                  {aType === "raw" && (
+                                    <a
+                                      href={msg.attachmentUrl}
+                                      onClick={(e) => handleFileDownload(e, msg.attachmentUrl, msg.attachmentName)}
+                                      className={styles.fileCard}
+                                    >
+                                      <div className={styles.fileCardIcon}>
+                                        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
+                                        </svg>
+                                      </div>
+                                      <div className={styles.fileCardInfo}>
+                                        <span className={styles.fileCardName}>{msg.attachmentName || "File"}</span>
+                                        {msg.attachmentSize && (
+                                          <span className={styles.fileCardSize}>{formatFileSize(msg.attachmentSize)}</span>
+                                        )}
+                                      </div>
+                                      <div className={styles.fileCardDownload}>
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                                        </svg>
+                                      </div>
+                                    </a>
+                                  )}
+
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )
+                    ))}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  {/* Message input */}
+                  <div className={styles.chatInputContainer}>
+                    {/* Attachment preview (image or file name badge) */}
+                    {attachmentFile && (
+                      <div className={styles.attachmentPreviewWrap}>
+                        {attachmentPreview ? (
+                          <img src={attachmentPreview} alt="preview" className={styles.attachmentPreviewImg} />
+                        ) : (
+                          <div className={styles.filePreviewBadge}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
+                            </svg>
+                            <span className={styles.filePreviewName}>{attachmentMeta?.name}</span>
+                            <span className={styles.filePreviewSize}>{formatFileSize(attachmentMeta?.size)}</span>
+                          </div>
+                        )}
+                        <button type="button" className={styles.cancelAttachmentBtn} onClick={cancelAttachment}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         </button>
                       </div>
                     )}
+                    <form className={styles.chatInputBar} onSubmit={sendMessage}>
+                      {/* Accept all file types; server enforces 25 MB limit */}
+                      <input type="file" style={{ display: 'none' }} ref={fileInputRef} onChange={handleAttachmentChange} accept="*" />
+                      <button type="button" className={styles.addAttachmentBtn} onClick={() => fileInputRef.current?.click()} disabled={isSending}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                      </button>
+                      <input
+                        type="text"
+                        className={styles.chatInput}
+                        placeholder={`Message #${activeChannelName}`}
+                        value={msgInput}
+                        onChange={(e) => setMsgInput(e.target.value)}
+                        disabled={isSending}
+                      />
+                      <button type="submit" className={styles.sendBtn} disabled={(!msgInput.trim() && !attachmentFile) || isSending}>
+                        {isSending ? (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.spinning}><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                        )}
+                      </button>
+                    </form>
                   </div>
-                ))}
-              </aside>
-            </div>
+                </div>
+
+                {/* Members sidebar */}
+                <aside className={styles.membersSidebar}>
+                  <div className={styles.membersHeader}>
+                    Members — {members.length}
+                  </div>
+                  {members.map((m) => (
+                    <div key={m.id} className={styles.memberItem}>
+                      <div className={styles.memberAvatarWrap}>
+                        <div className={styles.memberAvatar} style={{
+                          background: m.id === serverData?.ownerId ? '#5865f2' : '#23a559',
+                          backgroundImage: m.avatarUrl ? `url(${m.avatarUrl})` : 'none',
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          color: m.avatarUrl ? 'transparent' : 'inherit'
+                        }}>
+                          {!m.avatarUrl && m.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div
+                          className={styles.memberDot}
+                          style={{ background: onlineUsers[m.id] ? '#23a559' : '#80848e' }}
+                        ></div>
+                      </div>
+                      <span className={styles.memberName}>{m.username}</span>
+                      {m.id === serverData?.ownerId && (
+                        <span className={styles.ownerBadge}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="#faa61a"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5z" /></svg>
+                        </span>
+                      )}
+                      {/*call buttons - always show but disabled if offline*/}
+                      {(m.id !== userId) && (
+                        <div className={styles.memberActions}>
+                          <button
+                            className={styles.callBtn}
+                            onClick={() => {
+                              if (!onlineUsers[m.id]) {
+                                alert('User is not online');
+                                return;
+                              }
+                              startCall({ ...m, socketId: onlineUsers[m.id] }, 'audio');
+                            }}
+                            title={onlineUsers[m.id] ? "Audio call" : "User offline"}
+                            disabled={!onlineUsers[m.id]}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z" /></svg>
+                          </button>
+                          <button
+                            className={styles.callBtn}
+                            onClick={() => {
+                              if (!onlineUsers[m.id]) {
+                                alert('User is not online');
+                                return;
+                              }
+                              startCall({ ...m, socketId: onlineUsers[m.id] }, 'video');
+                            }}
+                            title={onlineUsers[m.id] ? "Video call" : "User offline"}
+                            disabled={!onlineUsers[m.id]}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" /></svg>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </aside>
+              </div>
+            )}
           </>
         )}
       </main>
 
       {showSettings && <UserSettings onClose={() => setShowSettings(false)} />}
+
+      {/* VOICE CHANNEL REMOTE AUDIO */}
+      {Object.entries(remoteStreams).map(([socketId, stream]) => (
+        <audio
+          key={socketId}
+          autoPlay
+          ref={el => { if (el && el.srcObject !== stream) el.srcObject = stream; }}
+          muted={isDeafened}
+        />
+      ))}
 
       {/* CALL MODAL */}
       {isCallModalOpen && (
@@ -1876,17 +2158,44 @@ export default function AppPage() {
       {isChannelModalOpen && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
-            <h3>Create Channel</h3>
+            <h3 style={{ marginBottom: '24px' }}>Create Channel</h3>
             <form onSubmit={handleCreateChannel}>
 
-              <input
-                type="text"
-                placeholder="new-channel"
-                value={newChannelName}
-                onChange={(e) => setNewChannelName(e.target.value)}
-                className={styles.modalInput}
-                autoFocus
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '12px', backgroundColor: newChannelType === 'text' ? 'var(--bg-modifier-selected)' : 'var(--background-secondary)', borderRadius: '4px', border: newChannelType === 'text' ? '1px solid var(--text-link)' : '1px solid transparent' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 6.1H3" /><path d="M21 12.1H3" /><path d="M15.1 18H3" /></svg>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', color: 'var(--text-normal)' }}>Text</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Send messages, images, GIFs, emoji, opinions, and puns</div>
+                  </div>
+                  <input type="radio" name="channelType" value="text" checked={newChannelType === 'text'} onChange={() => setNewChannelType('text')} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '12px', backgroundColor: newChannelType === 'voice' ? 'var(--bg-modifier-selected)' : 'var(--background-secondary)', borderRadius: '4px', border: newChannelType === 'voice' ? '1px solid var(--text-link)' : '1px solid transparent' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="22" /></svg>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', color: 'var(--text-normal)' }}>Voice</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Hang out together with voice, video, and screen share</div>
+                  </div>
+                  <input type="radio" name="channelType" value="voice" checked={newChannelType === 'voice'} onChange={() => setNewChannelType('voice')} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                </label>
+              </div>
+
+              <div style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '12px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Channel Name</div>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                  {newChannelType === 'text' ? '#' : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="22" /></svg>}
+                </span>
+                <input
+                  type="text"
+                  placeholder="new-channel"
+                  value={newChannelName}
+                  onChange={(e) => setNewChannelName(e.target.value)}
+                  className={styles.modalInput}
+                  style={{ paddingLeft: '32px' }}
+                  autoFocus
+                />
+              </div>
+
               <div className={styles.modalActions}>
                 <button type="button" onClick={() => setIsChannelModalOpen(false)}>Cancel</button>
                 <button type="submit" className={styles.createBtn} disabled={!newChannelName.trim()}>Create Channel</button>

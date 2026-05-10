@@ -11,6 +11,9 @@ const User = require("./models/User");
 // Track user socket mappings: userId -> Set of socketIds
 const userSockets = new Map();
 
+// Track users in voice channels: channelId -> Map<socketId, userObj>
+const voiceRooms = new Map();
+
 // Handle connection errors after the initial connection
 mongoose.connection.on("error", (err) => {
   console.error("❌ MongoDB runtime error:", err);
@@ -35,19 +38,38 @@ app.set("io", io);
 
 
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token) {
     return next(new Error("Authentication error: No token provided"));
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return next(new Error("Authentication error: Invalid token"));
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    let user;
+    if (typeof decoded.id === 'string' && decoded.id.length === 24) {
+      // Legacy token with MongoDB _id
+      user = await User.findById(decoded.id);
+    } else {
+      user = await User.findOne({ id: decoded.id });
     }
-    socket.user = decoded; // Attach the decoded user data (id, username) to the socket instance
+
+    if (user) {
+      // Extract numeric id and avatarUrl
+      socket.user = {
+        id: user._doc?.id || user.id, // Ensure numeric ID
+        username: user.username,
+        avatarUrl: user.avatarUrl
+      };
+    } else {
+      socket.user = decoded; // Fallback
+    }
+    
     next();
-  });
+  } catch (err) {
+    return next(new Error("Authentication error: Invalid token"));
+  }
 });
 
 io.on("connection", async (socket) => {
@@ -78,6 +100,14 @@ io.on("connection", async (socket) => {
   socket.broadcast.emit("user-online", { userId, socketId: socket.id });
   console.log(`📢 Broadcasted user-online for ${socket.user.username} (${userId})`);
 
+  // Tell THIS socket about ALL active voice rooms
+  for (const [cId, room] of voiceRooms.entries()) {
+    socket.emit("voice-users-update", {
+      channelId: cId,
+      users: Array.from(room.values())
+    });
+  }
+
   socket.on("join_channel", (channelId) => {
     socket.join(channelId);
     console.log(`Socket ${socket.id} joined channel: ${channelId}`);
@@ -89,18 +119,20 @@ io.on("connection", async (socket) => {
   });
 
   // Voice/Video Call Signaling
-  socket.on("call-user", ({ userToCall, signalData, from, callType }) => {
+  socket.on("call-user", ({ userToCall, signalData, from, callType, isVoiceChannel }) => {
     // Use server-side verified username from JWT — never trust client-sent callerName
     io.to(userToCall).emit("call-incoming", {
       signal: signalData,
       from,
       callType: callType || 'audio',
       callerName: socket.user.username,
+      callerAvatar: socket.user.avatarUrl,
+      isVoiceChannel
     });
   });
 
-  socket.on("accept-call", ({ signal, to }) => {
-    io.to(to).emit("call-accepted", signal);
+  socket.on("accept-call", ({ signal, to, isVoiceChannel }) => {
+    io.to(to).emit("call-accepted", { signal, from: socket.id, isVoiceChannel });
   });
 
   socket.on("reject-call", ({ to }) => {
@@ -111,8 +143,8 @@ io.on("connection", async (socket) => {
     io.to(to).emit("call-ended");
   });
 
-  socket.on("ice-candidate", ({ candidate, to }) => {
-    io.to(to).emit("ice-candidate", { candidate });
+  socket.on("ice-candidate", ({ candidate, to, isVoiceChannel }) => {
+    io.to(to).emit("ice-candidate", { candidate, from: socket.id, isVoiceChannel });
   });
 
   socket.on("toggle-video", ({ to, isVideoOff }) => {
@@ -127,12 +159,78 @@ io.on("connection", async (socket) => {
     io.to(to).emit("renegotiate", signal);
   });
 
+  socket.on("renegotiate-mesh", ({ to, signal, from }) => {
+    io.to(to).emit("renegotiate-mesh", { signal, from });
+  });
+
   socket.on("toggle-screen-share", ({ to, isScreenSharing }) => {
     io.to(to).emit("toggle-screen-share", { isScreenSharing });
   });
 
+  socket.on("join-voice", ({ channelId, user }) => {
+    // Enforce exclusivity: Remove user from all other voice rooms
+    for (const [cId, room] of voiceRooms.entries()) {
+      for (const [sId, u] of room.entries()) {
+        if (String(u.id) === String(user.id)) {
+          const socketToRemove = io.sockets.sockets.get(sId);
+          if (socketToRemove) {
+            socketToRemove.leave(`voice-${cId}`);
+            socketToRemove.emit("force-disconnect-voice");
+          }
+          room.delete(sId);
+          io.emit("voice-users-update", {
+            channelId: cId,
+            users: Array.from(room.values())
+          });
+          socket.to(`voice-${cId}`).emit("user-left-voice", { channelId: cId, socketId: sId });
+          if (room.size === 0) voiceRooms.delete(cId);
+        }
+      }
+    }
+
+    socket.join(`voice-${channelId}`);
+    if (!user.socketId) user.socketId = socket.id;
+    if (!voiceRooms.has(channelId)) voiceRooms.set(channelId, new Map());
+    voiceRooms.get(channelId).set(socket.id, user);
+    
+    io.emit("voice-users-update", {
+      channelId,
+      users: Array.from(voiceRooms.get(channelId).values())
+    });
+    
+    // Broadcast to others in the room to trigger WebRTC offers
+    socket.to(`voice-${channelId}`).emit("user-joined-voice", { channelId, user });
+  });
+
+  socket.on("leave-voice", ({ channelId }) => {
+    socket.leave(`voice-${channelId}`);
+    if (voiceRooms.has(channelId)) {
+      const room = voiceRooms.get(channelId);
+      room.delete(socket.id);
+      io.emit("voice-users-update", {
+        channelId,
+        users: Array.from(room.values())
+      });
+      socket.to(`voice-${channelId}`).emit("user-left-voice", { channelId, socketId: socket.id });
+      if (room.size === 0) voiceRooms.delete(channelId);
+    }
+  });
+
   socket.on("disconnect", async () => {
     console.log(`🔌 Client disconnected: ${socket.id} (User: ${socket.user.username})`);
+    
+    for (const [channelId, room] of voiceRooms.entries()) {
+      if (room.has(socket.id)) {
+        room.delete(socket.id);
+        io.emit("voice-users-update", {
+          channelId,
+          users: Array.from(room.values())
+        });
+        socket.to(`voice-${channelId}`).emit("user-left-voice", { channelId, socketId: socket.id });
+        if (room.size === 0) voiceRooms.delete(channelId);
+      }
+    }
+
     const socketSet = userSockets.get(userId);
     if (socketSet) {
       socketSet.delete(socket.id);
