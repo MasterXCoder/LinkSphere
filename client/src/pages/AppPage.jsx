@@ -691,7 +691,14 @@ export default function AppPage() {
   };
 
   const channels = serverData?.channels || [];
-  const members = serverData?.membersData || [];
+  // Deduplicate members by userId — same user can appear multiple times if they
+  // connected with multiple sockets or the backend returned duplicate rows.
+  const members = Object.values(
+    (serverData?.membersData || []).reduce((acc, m) => {
+      if (!acc[m.id]) acc[m.id] = m;
+      return acc;
+    }, {})
+  );
   const currentServer = servers.find((s) => s.id === activeServer);
   const activeChannelObj = channels.find((c) => c.id === activeChannel);
   const activeChannelName = activeChannelObj?.name || "";

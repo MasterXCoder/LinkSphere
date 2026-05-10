@@ -77,6 +77,40 @@ export default function UserSettings({ onClose }) {
   const [fontSize,    setFontSize]    = useState(() => Number(localStorage.getItem('ls-fontsize')  || 14));
   const [compactMode, setCompactMode] = useState(() => localStorage.getItem('ls-compact') === 'true');
 
+  // Content & Social state
+  const [autoPlayGifs,    setAutoPlayGifs]    = useState(() => localStorage.getItem('ls-gifs')    !== 'false');
+  const [showEmbeds,      setShowEmbeds]      = useState(() => localStorage.getItem('ls-embeds')  !== 'false');
+  const [largEmoji,       setLargeEmoji]      = useState(() => localStorage.getItem('ls-emoji')   === 'true');
+  const [showLinkPreview, setShowLinkPreview] = useState(() => localStorage.getItem('ls-links')   !== 'false');
+
+  // Data & Privacy state
+  const [analyticsOpt,    setAnalyticsOpt]    = useState(() => localStorage.getItem('ls-analytics') !== 'false');
+  const [readReceipts,    setReadReceipts]    = useState(() => localStorage.getItem('ls-receipts')  !== 'false');
+
+  // Notifications state
+  const [notifEnabled,    setNotifEnabled]    = useState(() => localStorage.getItem('ls-notif')    !== 'false');
+  const [notifSound,      setNotifSound]      = useState(() => localStorage.getItem('ls-notifsnd') !== 'false');
+  const [notifMentionOnly,setNotifMentionOnly]= useState(() => localStorage.getItem('ls-mention')  === 'true');
+  const [notifPermission, setNotifPermission] = useState(() => (typeof Notification !== 'undefined' ? Notification.permission : 'default'));
+
+  // Accessibility state
+  const [reduceMotion,    setReduceMotion]    = useState(() => localStorage.getItem('ls-motion')   === 'true');
+  const [highContrast,    setHighContrast]    = useState(() => localStorage.getItem('ls-contrast')  === 'true');
+  const [msgGrouping,     setMsgGrouping]     = useState(() => localStorage.getItem('ls-grouping') !== 'false');
+
+  // Voice & Video state
+  const [echoCancellation,  setEchoCancellation]  = useState(() => localStorage.getItem('ls-echo')  !== 'false');
+  const [noiseSuppression,  setNoiseSuppression]  = useState(() => localStorage.getItem('ls-noise') !== 'false');
+  const [pttKey,            setPttKey]            = useState(() => localStorage.getItem('ls-ptt')   || 'None');
+  const [audioDevices,      setAudioDevices]      = useState({ inputs: [], outputs: [] });
+  const [selectedInput,     setSelectedInput]     = useState(() => localStorage.getItem('ls-audioin')  || '');
+  const [selectedOutput,    setSelectedOutput]    = useState(() => localStorage.getItem('ls-audioout') || '');
+
+  // Language & Time state
+  const [language,    setLanguage]    = useState(() => localStorage.getItem('ls-lang')     || 'en');
+  const [timeFormat,  setTimeFormat]  = useState(() => localStorage.getItem('ls-timefmt')  || '12h');
+  const [dateFormat,  setDateFormat]  = useState(() => localStorage.getItem('ls-datefmt')  || 'MDY');
+
   // Friends state
   const [friendsData, setFriendsData] = useState({ friends: [], incoming: [], outgoing: [] });
   const [settingsFriendInput, setSettingsFriendInput] = useState('');
@@ -478,10 +512,10 @@ export default function UserSettings({ onClose }) {
             <div className={styles.navHeader}>User Settings</div>
             <NavItem label="My Account" active={settingsTab === 'account'} onClick={() => setSettingsTab('account')} />
             <NavItem label="Friends" active={settingsTab === 'friends'} onClick={() => setSettingsTab('friends')} badge={friendsData.incoming.length > 0 ? friendsData.incoming.length : undefined} />
-            <NavItem label="Content & Social" />
-            <NavItem label="Data & Privacy" />
-            <NavItem label="Notifications" />
-            <NavItem label="Connections" />
+            <NavItem label="Content &amp; Social" active={settingsTab === 'content'} onClick={() => setSettingsTab('content')} />
+            <NavItem label="Data &amp; Privacy" active={settingsTab === 'privacy'} onClick={() => setSettingsTab('privacy')} />
+            <NavItem label="Notifications" active={settingsTab === 'notifications'} onClick={() => setSettingsTab('notifications')} />
+            <NavItem label="Connections" active={settingsTab === 'connections'} onClick={() => setSettingsTab('connections')} />
           </div>
 
           <div className={styles.divider} />
@@ -489,9 +523,9 @@ export default function UserSettings({ onClose }) {
           <div className={styles.navSection}>
             <div className={styles.navHeader}>App Settings</div>
             <NavItem label="Appearance" active={settingsTab === 'appearance'} onClick={() => setSettingsTab('appearance')} />
-            <NavItem label="Accessibility" />
-            <NavItem label="Voice & Video" />
-            <NavItem label="Language & Time" />
+            <NavItem label="Accessibility" active={settingsTab === 'accessibility'} onClick={() => setSettingsTab('accessibility')} />
+            <NavItem label="Voice &amp; Video" active={settingsTab === 'voice'} onClick={() => setSettingsTab('voice')} />
+            <NavItem label="Language &amp; Time" active={settingsTab === 'language'} onClick={() => setSettingsTab('language')} />
           </div>
 
           <div className={styles.divider} />
@@ -799,6 +833,350 @@ export default function UserSettings({ onClose }) {
                   >
                     <div className={styles.toggleKnob} />
                   </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Content & Social ── */}
+          {settingsTab === 'content' && (
+            <>
+              <h2 className={styles.pageTitle}>Content &amp; Social</h2>
+
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Media &amp; Links</h2>
+                {[
+                  { label: 'Auto-play GIFs', desc: 'Automatically animate GIFs in chat.', val: autoPlayGifs, set: setAutoPlayGifs, key: 'ls-gifs' },
+                  { label: 'Show Image Embeds', desc: 'Preview images shared via URLs.', val: showEmbeds, set: setShowEmbeds, key: 'ls-embeds' },
+                  { label: 'Show Link Previews', desc: 'Display rich preview cards for links.', val: showLinkPreview, set: setShowLinkPreview, key: 'ls-links' },
+                  { label: 'Large Emoji', desc: 'Display emoji at a larger size when sent alone.', val: largEmoji, set: setLargeEmoji, key: 'ls-emoji' },
+                ].map(({ label, desc, val, set, key }) => (
+                  <div key={key} className={styles.toggleRow} style={{ marginBottom: 20 }}>
+                    <div>
+                      <div className={styles.blockTitle}>{label}</div>
+                      <div className={styles.blockDesc} style={{ marginBottom: 0 }}>{desc}</div>
+                    </div>
+                    <button className={`${styles.toggleBtn} ${val ? styles.toggleBtnOn : ''}`}
+                      onClick={() => { const n = !val; set(n); localStorage.setItem(key, n); }}
+                      aria-pressed={val}>
+                      <div className={styles.toggleKnob} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* ── Data & Privacy ── */}
+          {settingsTab === 'privacy' && (
+            <>
+              <h2 className={styles.pageTitle}>Data &amp; Privacy</h2>
+
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Usage Data</h2>
+                {[
+                  { label: 'Share Usage Analytics', desc: 'Help improve LinkSphere by sharing anonymous usage data.', val: analyticsOpt, set: setAnalyticsOpt, key: 'ls-analytics' },
+                  { label: 'Show Read Receipts', desc: 'Let others see when you have read their messages.', val: readReceipts, set: setReadReceipts, key: 'ls-receipts' },
+                ].map(({ label, desc, val, set, key }) => (
+                  <div key={key} className={styles.toggleRow} style={{ marginBottom: 20 }}>
+                    <div>
+                      <div className={styles.blockTitle}>{label}</div>
+                      <div className={styles.blockDesc} style={{ marginBottom: 0 }}>{desc}</div>
+                    </div>
+                    <button className={`${styles.toggleBtn} ${val ? styles.toggleBtnOn : ''}`}
+                      onClick={() => { const n = !val; set(n); localStorage.setItem(key, n); }}
+                      aria-pressed={val}>
+                      <div className={styles.toggleKnob} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className={styles.sectionDivider} />
+
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Clear Data</h2>
+                <p className={styles.blockDesc}>Remove locally stored preferences and cached data. This does not delete your account or messages.</p>
+                <button className={styles.dangerGhostBtn} onClick={() => {
+                  const keys = ['ls-theme','ls-fontsize','ls-compact','ls-gifs','ls-embeds','ls-links','ls-emoji','ls-analytics','ls-receipts','ls-notif','ls-notifsnd','ls-mention','ls-motion','ls-contrast','ls-grouping','ls-echo','ls-noise','ls-ptt','ls-audioin','ls-audioout','ls-lang','ls-timefmt','ls-datefmt'];
+                  keys.forEach(k => localStorage.removeItem(k));
+                  setSuccessToast('Local data cleared. Refresh to apply defaults.');
+                  setTimeout(() => setSuccessToast(''), 3000);
+                }}>Clear Local Data</button>
+              </div>
+            </>
+          )}
+
+          {/* ── Notifications ── */}
+          {settingsTab === 'notifications' && (
+            <>
+              <h2 className={styles.pageTitle}>Notifications</h2>
+
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Desktop Notifications</h2>
+
+                {notifPermission !== 'granted' && (
+                  <div style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.3)', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+                    <p className={styles.blockDesc} style={{ marginBottom: 8 }}>Browser permission is required to show desktop notifications.</p>
+                    <button className={styles.primaryBtn} onClick={async () => {
+                      if (typeof Notification !== 'undefined') {
+                        const perm = await Notification.requestPermission();
+                        setNotifPermission(perm);
+                      }
+                    }}>Enable Desktop Notifications</button>
+                  </div>
+                )}
+                {notifPermission === 'granted' && (
+                  <div className={styles.settingsBadge} style={{ marginBottom: 16 }}>✅ Desktop notifications are enabled</div>
+                )}
+
+                {[
+                  { label: 'Enable Notifications', desc: 'Receive notifications for new messages.', val: notifEnabled, set: setNotifEnabled, key: 'ls-notif' },
+                  { label: 'Notification Sounds', desc: 'Play a sound when a notification arrives.', val: notifSound, set: setNotifSound, key: 'ls-notifsnd' },
+                  { label: '@Mentions Only', desc: 'Only notify when you are directly mentioned.', val: notifMentionOnly, set: setNotifMentionOnly, key: 'ls-mention' },
+                ].map(({ label, desc, val, set, key }) => (
+                  <div key={key} className={styles.toggleRow} style={{ marginBottom: 20 }}>
+                    <div>
+                      <div className={styles.blockTitle}>{label}</div>
+                      <div className={styles.blockDesc} style={{ marginBottom: 0 }}>{desc}</div>
+                    </div>
+                    <button className={`${styles.toggleBtn} ${val ? styles.toggleBtnOn : ''}`}
+                      onClick={() => { const n = !val; set(n); localStorage.setItem(key, n); }}
+                      aria-pressed={val}>
+                      <div className={styles.toggleKnob} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* ── Connections ── */}
+          {settingsTab === 'connections' && (
+            <>
+              <h2 className={styles.pageTitle}>Connections</h2>
+              <p className={styles.blockDesc} style={{ marginBottom: 24 }}>Manage the third-party accounts connected to your LinkSphere profile.</p>
+
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                {/* Google */}
+                <div className={styles.connectionCard}>
+                  <div className={styles.connectionIcon} style={{ background: '#fff' }}>
+                    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.29-8.16 2.29-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                  </div>
+                  <div className={styles.connectionInfo}>
+                    <div className={styles.connectionName}>Google</div>
+                    <div className={styles.connectionStatus}>{auth.user?.googleId ? `Connected as ${auth.user.email}` : 'Not connected'}</div>
+                  </div>
+                  <span className={`${styles.connectionBadge} ${auth.user?.googleId ? styles.connectionBadgeOn : styles.connectionBadgeOff}`}>
+                    {auth.user?.googleId ? 'Connected' : 'Disconnected'}
+                  </span>
+                </div>
+
+                {/* GitHub */}
+                <div className={styles.connectionCard}>
+                  <div className={styles.connectionIcon} style={{ background: '#24292e' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+                  </div>
+                  <div className={styles.connectionInfo}>
+                    <div className={styles.connectionName}>GitHub</div>
+                    <div className={styles.connectionStatus}>Not connected</div>
+                  </div>
+                  <span className={`${styles.connectionBadge} ${styles.connectionBadgeOff}`}>Disconnected</span>
+                </div>
+
+                {/* Discord */}
+                <div className={styles.connectionCard}>
+                  <div className={styles.connectionIcon} style={{ background: '#5865f2' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.015.043.03.055a19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+                  </div>
+                  <div className={styles.connectionInfo}>
+                    <div className={styles.connectionName}>Discord</div>
+                    <div className={styles.connectionStatus}>Not connected</div>
+                  </div>
+                  <span className={`${styles.connectionBadge} ${styles.connectionBadgeOff}`}>Disconnected</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Accessibility ── */}
+          {settingsTab === 'accessibility' && (
+            <>
+              <h2 className={styles.pageTitle}>Accessibility</h2>
+
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Visual</h2>
+                {[
+                  { label: 'Reduce Motion', desc: 'Minimise animations and transitions throughout the app.', val: reduceMotion, set: setReduceMotion, key: 'ls-motion', apply: (v) => document.documentElement.dataset.motion = v ? 'reduced' : '' },
+                  { label: 'High Contrast', desc: 'Increase contrast between text and background colours.', val: highContrast, set: setHighContrast, key: 'ls-contrast', apply: (v) => document.documentElement.dataset.contrast = v ? 'high' : '' },
+                  { label: 'Group Messages', desc: 'Collapse consecutive messages from the same user.', val: msgGrouping, set: setMsgGrouping, key: 'ls-grouping', apply: () => {} },
+                ].map(({ label, desc, val, set, key, apply }) => (
+                  <div key={key} className={styles.toggleRow} style={{ marginBottom: 20 }}>
+                    <div>
+                      <div className={styles.blockTitle}>{label}</div>
+                      <div className={styles.blockDesc} style={{ marginBottom: 0 }}>{desc}</div>
+                    </div>
+                    <button className={`${styles.toggleBtn} ${val ? styles.toggleBtnOn : ''}`}
+                      onClick={() => { const n = !val; set(n); localStorage.setItem(key, n); apply(n); }}
+                      aria-pressed={val}>
+                      <div className={styles.toggleKnob} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* ── Voice & Video ── */}
+          {settingsTab === 'voice' && (
+            <>
+              <h2 className={styles.pageTitle}>Voice &amp; Video</h2>
+
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Audio Devices</h2>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.inputLabel}>Input Device (Microphone)</label>
+                  <select className={styles.selectField} value={selectedInput}
+                    onChange={e => { setSelectedInput(e.target.value); localStorage.setItem('ls-audioin', e.target.value); }}
+                    onClick={async () => {
+                      if (audioDevices.inputs.length === 0) {
+                        try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch {}
+                        const devs = await navigator.mediaDevices.enumerateDevices();
+                        setAudioDevices({ inputs: devs.filter(d => d.kind === 'audioinput'), outputs: devs.filter(d => d.kind === 'audiooutput') });
+                      }
+                    }}>
+                    <option value="">Default Microphone</option>
+                    {audioDevices.inputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${d.deviceId.slice(0,8)}`}</option>)}
+                  </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.inputLabel}>Output Device (Speakers)</label>
+                  <select className={styles.selectField} value={selectedOutput}
+                    onChange={e => { setSelectedOutput(e.target.value); localStorage.setItem('ls-audioout', e.target.value); }}>
+                    <option value="">Default Speaker</option>
+                    {audioDevices.outputs.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || `Speaker ${d.deviceId.slice(0,8)}`}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className={styles.sectionDivider} />
+
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Processing</h2>
+                {[
+                  { label: 'Echo Cancellation', desc: 'Reduce echo from your speaker being picked up by your microphone.', val: echoCancellation, set: setEchoCancellation, key: 'ls-echo' },
+                  { label: 'Noise Suppression', desc: 'Filter out background noise during voice calls.', val: noiseSuppression, set: setNoiseSuppression, key: 'ls-noise' },
+                ].map(({ label, desc, val, set, key }) => (
+                  <div key={key} className={styles.toggleRow} style={{ marginBottom: 20 }}>
+                    <div>
+                      <div className={styles.blockTitle}>{label}</div>
+                      <div className={styles.blockDesc} style={{ marginBottom: 0 }}>{desc}</div>
+                    </div>
+                    <button className={`${styles.toggleBtn} ${val ? styles.toggleBtnOn : ''}`}
+                      onClick={() => { const n = !val; set(n); localStorage.setItem(key, n); }}
+                      aria-pressed={val}>
+                      <div className={styles.toggleKnob} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className={styles.sectionDivider} />
+
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Push-to-Talk</h2>
+                <p className={styles.blockDesc}>Hold a key to activate your microphone during voice calls.</p>
+                <div className={styles.pttDisplay}>
+                  <span>{pttKey === 'None' ? 'No key bound' : `Key: ${pttKey}`}</span>
+                  <button className={styles.editBtn} onClick={() => {
+                    const handler = (e) => { e.preventDefault(); setPttKey(e.key === 'Escape' ? 'None' : e.key.toUpperCase()); localStorage.setItem('ls-ptt', e.key === 'Escape' ? 'None' : e.key.toUpperCase()); window.removeEventListener('keydown', handler); };
+                    window.addEventListener('keydown', handler);
+                    setPttKey('Press any key…');
+                  }}>Set Key</button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Language & Time ── */}
+          {settingsTab === 'language' && (
+            <>
+              <h2 className={styles.pageTitle}>Language &amp; Time</h2>
+
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Language</h2>
+                <div className={styles.formGroup}>
+                  <label className={styles.inputLabel}>Display Language</label>
+                  <select className={styles.selectField} value={language}
+                    onChange={e => { setLanguage(e.target.value); localStorage.setItem('ls-lang', e.target.value); }}>
+                    <option value="en">English (US)</option>
+                    <option value="en-gb">English (UK)</option>
+                    <option value="hi">Hindi — हिन्दी</option>
+                    <option value="es">Spanish — Español</option>
+                    <option value="fr">French — Français</option>
+                    <option value="de">German — Deutsch</option>
+                    <option value="ja">Japanese — 日本語</option>
+                    <option value="zh">Chinese — 中文</option>
+                    <option value="ko">Korean — 한국어</option>
+                    <option value="ar">Arabic — العربية</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className={styles.sectionDivider} />
+
+              <div className={styles.sectionContainer} style={{ marginTop: 0 }}>
+                <h2 className={styles.sectionTitle}>Time &amp; Date</h2>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.inputLabel}>Time Format</label>
+                  <div className={styles.segmentedControl}>
+                    {['12h', '24h'].map(f => (
+                      <button key={f}
+                        className={`${styles.segmentBtn} ${timeFormat === f ? styles.segmentBtnActive : ''}`}
+                        onClick={() => { setTimeFormat(f); localStorage.setItem('ls-timefmt', f); }}>
+                        {f === '12h' ? '12-hour (1:30 PM)' : '24-hour (13:30)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.inputLabel}>Date Format</label>
+                  <div className={styles.segmentedControl}>
+                    {[
+                      { val: 'MDY', label: 'MM/DD/YYYY' },
+                      { val: 'DMY', label: 'DD/MM/YYYY' },
+                      { val: 'YMD', label: 'YYYY-MM-DD' },
+                    ].map(({ val, label }) => (
+                      <button key={val}
+                        className={`${styles.segmentBtn} ${dateFormat === val ? styles.segmentBtnActive : ''}`}
+                        onClick={() => { setDateFormat(val); localStorage.setItem('ls-datefmt', val); }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Live preview */}
+                <div className={styles.fontPreview} style={{ marginTop: 8 }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: 12, marginRight: 8 }}>Preview:</span>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                    {(() => {
+                      const now = new Date();
+                      const time = timeFormat === '12h'
+                        ? now.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: true })
+                        : now.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
+                      const date = dateFormat === 'MDY'
+                        ? `${now.getMonth()+1}/${now.getDate()}/${now.getFullYear()}`
+                        : dateFormat === 'DMY'
+                        ? `${now.getDate()}/${now.getMonth()+1}/${now.getFullYear()}`
+                        : `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+                      return `${date} at ${time}`;
+                    })()}
+                  </span>
                 </div>
               </div>
             </>
