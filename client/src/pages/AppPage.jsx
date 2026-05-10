@@ -1049,11 +1049,42 @@ export default function AppPage() {
           <>
             <header className={styles.topHeader}>
               <div className={styles.headerLeft}>
-                <div className={styles.headerTitle}>
+                <div className={styles.headerTitle} style={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
                   {selectedDmFriend ? (
                     <>
-                      <button className={styles.tabBtn} onClick={() => setSelectedDmFriend(null)}>Back</button>
-                      <span>@ {selectedDmFriend.username}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button className={styles.tabBtn} onClick={() => setSelectedDmFriend(null)}>Back</button>
+                        <span>@ {selectedDmFriend.username}</span>
+                      </div>
+                      <div className={styles.dmHeaderRight}>
+                        <div className={styles.dmHeaderIcons}>
+                          <button className={styles.dmHeaderIconBtn} title="Start Voice Call" onClick={() => {
+                            if (!onlineUsers[selectedDmFriend.id]) return alert('User is not online');
+                            startCall({ ...selectedDmFriend, socketId: onlineUsers[selectedDmFriend.id] }, 'audio');
+                          }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z"/></svg>
+                          </button>
+                          <button className={styles.dmHeaderIconBtn} title="Start Video Call" onClick={() => {
+                            if (!onlineUsers[selectedDmFriend.id]) return alert('User is not online');
+                            startCall({ ...selectedDmFriend, socketId: onlineUsers[selectedDmFriend.id] }, 'video');
+                          }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                          </button>
+                          <button className={styles.dmHeaderIconBtn} title="Pinned Messages">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11V5.5C16 3.57 14.43 2 12.5 2S9 3.57 9 5.5V11L7 13v2h4v6h2v-6h4v-2l-2-2z"/></svg>
+                          </button>
+                          <button className={styles.dmHeaderIconBtn} title="Add Friends to DM">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                          </button>
+                          <button className={styles.dmHeaderIconBtn} title="User Profile">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+                          </button>
+                        </div>
+                        <div className={styles.dmSearchBar}>
+                          <input type="text" className={styles.dmSearchInput} placeholder="Search" />
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{color: 'var(--text-muted)'}}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                        </div>
+                      </div>
                     </>
                   ) : (
                     <>
@@ -1082,9 +1113,24 @@ export default function AppPage() {
                     <div className={styles.messageList}>
                       {dmMessages.length === 0 && (
                         <div className={styles.welcomeMsg}>
-                          <div className={styles.welcomeHash}>@</div>
+                          <div className={styles.welcomeHash} style={{ backgroundImage: selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: selectedDmFriend.avatarUrl ? 'transparent' : 'inherit' }}>
+                            {!selectedDmFriend.avatarUrl && selectedDmFriend.username.charAt(0).toUpperCase()}
+                          </div>
                           <h2 className={styles.welcomeTitle}>{selectedDmFriend.username}</h2>
-                          <p className={styles.welcomeDesc}>This is the beginning of your direct message history.</p>
+                          <h3 style={{ fontSize: '18px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px' }}>{selectedDmFriend.username.toLowerCase().replace(/\s/g, '_')}xo</h3>
+                          <p className={styles.welcomeDesc}>This is the beginning of your direct message history with <strong>{selectedDmFriend.username}</strong>.</p>
+                          <div className={styles.dmEmptyActions}>
+                            <div className={styles.mutualServers}>
+                              <svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="32" cy="32" r="32" fill="#5865f2" />
+                                <text x="12" y="44" fontFamily="Inter, sans-serif" fontWeight="900" fontSize="36" fill="#fff">ls</text>
+                              </svg>
+                              3 Mutual Servers
+                            </div>
+                            <span style={{color: 'var(--text-muted)'}}>•</span>
+                            <button className={styles.dmEmptyActionBtn}>Remove Friend</button>
+                            <button className={styles.dmEmptyActionBtn}>Block</button>
+                          </div>
                         </div>
                       )}
                       {dmMessages.map((msg) => {
@@ -1156,10 +1202,10 @@ export default function AppPage() {
                           </button>
                         </div>
                       )}
-                      <form className={styles.chatInputBar} onSubmit={sendMessage}>
+                      <form className={styles.chatInputBar} onSubmit={sendMessage} style={{ paddingRight: 0 }}>
                         <input type="file" style={{ display: 'none' }} ref={fileInputRef} onChange={handleAttachmentChange} />
-                        <button type="button" className={styles.addAttachmentBtn} onClick={() => fileInputRef.current?.click()} disabled={isSending}>
-                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                        <button type="button" className={styles.addAttachmentBtn} onClick={() => fileInputRef.current?.click()} disabled={isSending} style={{ background: 'var(--bg-raised)', border: 'none', color: 'var(--text-primary)', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '10px' }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
                         </button>
                         <input
                           type="text"
@@ -1169,65 +1215,75 @@ export default function AppPage() {
                           onChange={(e) => setMsgInput(e.target.value)}
                           disabled={isSending}
                         />
-                        <button type="submit" className={styles.sendBtn} disabled={(!msgInput.trim() && !attachmentFile) || isSending}>
-                          {isSending ? (
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.spinning}><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
-                          ) : (
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
-                          )}
-                        </button>
+                        <div className={styles.chatInputRightIcons}>
+                          <button type="button" className={styles.chatInputIconBtn} title="Gift">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12s4.48 10 10 10 10-4.48 10-10zm-11 5v-4H7l4-5v4h4l-4 5z"/></svg>
+                          </button>
+                          <button type="button" className={styles.chatInputIconBtn} title="GIF">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.5 9H13v6h-1.5zM9 9H6c-.6 0-1 .5-1 1v4c0 .5.4 1 1 1h3c.6 0 1-.5 1-1v-2H8.5v1.5h-1.5v-3H10V10c0-.5-.4-1-1-1zm10 1.5V9h-4.5v6H16v-2h2v-1.5h-2v-1h3z"/></svg>
+                          </button>
+                          <button type="button" className={styles.chatInputIconBtn} title="Sticker">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+                          </button>
+                          <button type="button" className={styles.chatInputIconBtn} title="Emoji">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                          </button>
+                          <button type="submit" className={styles.sendBtn} disabled={(!msgInput.trim() && !attachmentFile) || isSending} style={{ marginLeft: 0 }}>
+                            {isSending ? (
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.spinning}><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                            ) : (
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                            )}
+                          </button>
+                        </div>
                       </form>
                     </div>
                   </div>
 
-                  <aside className={styles.membersSidebar}>
-                    <div className={styles.membersHeader}>Direct Message</div>
-                    <div className={styles.memberItem}>
-                      <div className={styles.memberAvatarWrap}>
-                        <div className={styles.memberAvatar} style={{
-                          backgroundImage: selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : 'none',
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                          color: selectedDmFriend.avatarUrl ? 'transparent' : 'inherit'
-                        }}>
+                  <aside className={styles.dmProfileSidebar}>
+                    <div className={styles.profileBanner}>
+                      <div className={styles.profileAvatarWrapper}>
+                        <div className={styles.profileAvatarLarge} style={{ backgroundImage: selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: selectedDmFriend.avatarUrl ? 'transparent' : 'inherit' }}>
                           {!selectedDmFriend.avatarUrl && selectedDmFriend.username.charAt(0).toUpperCase()}
                         </div>
-                        <div
-                          className={styles.memberDot}
-                          style={{ background: onlineUsers[selectedDmFriend.id] ? '#23a559' : '#80848e' }}
-                        ></div>
+                        <div className={styles.profileStatusDotLarge} style={{ background: onlineUsers[selectedDmFriend.id] ? '#23a559' : '#80848e' }}></div>
                       </div>
-                      <span className={styles.memberName}>{selectedDmFriend.username}</span>
-                      <div className={styles.memberActions}>
-                        <button
-                          className={styles.callBtn}
-                          onClick={() => {
-                            if (!onlineUsers[selectedDmFriend.id]) {
-                              alert('User is not online');
-                              return;
-                            }
-                            startCall({ ...selectedDmFriend, socketId: onlineUsers[selectedDmFriend.id] }, 'audio');
-                          }}
-                          title={onlineUsers[selectedDmFriend.id] ? "Audio call" : "User offline"}
-                          disabled={!onlineUsers[selectedDmFriend.id]}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z"/></svg>
-                        </button>
-                        <button
-                          className={styles.callBtn}
-                          onClick={() => {
-                            if (!onlineUsers[selectedDmFriend.id]) {
-                              alert('User is not online');
-                              return;
-                            }
-                            startCall({ ...selectedDmFriend, socketId: onlineUsers[selectedDmFriend.id] }, 'video');
-                          }}
-                          title={onlineUsers[selectedDmFriend.id] ? "Video call" : "User offline"}
-                          disabled={!onlineUsers[selectedDmFriend.id]}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                        </button>
+                    </div>
+                    <div className={styles.profileContent}>
+                      <div className={styles.profileHeader}>
+                        <h2 className={styles.profileName}>{selectedDmFriend.username}</h2>
+                        <div className={styles.profileUsername}>
+                          {selectedDmFriend.username.toLowerCase().replace(/\s/g, '_')}xo
+                          <div className={styles.profileBadges}>
+                            <span className={styles.profileBadge} style={{ color: '#c4b5fd', background: 'rgba(124, 58, 237, 0.15)' }}>♥ MEOW</span>
+                            <span className={styles.profileBadge} style={{ color: '#f87171', background: 'rgba(239, 68, 68, 0.15)' }}>✔</span>
+                            <span className={styles.profileBadge} style={{ color: '#60a5fa', background: 'rgba(59, 130, 246, 0.15)' }}>#</span>
+                            <span className={styles.profileBadge} style={{ color: '#34d399', background: 'rgba(52, 211, 153, 0.15)' }}>✿</span>
+                          </div>
+                        </div>
                       </div>
+
+                      <div className={styles.profileSection}>
+                        <h3 className={styles.profileSectionTitle}>Bio</h3>
+                        <p className={styles.profileSectionContent}>Vigilante</p>
+                      </div>
+
+                      <div className={styles.profileSection}>
+                        <h3 className={styles.profileSectionTitle}>Member Since</h3>
+                        <p className={styles.profileSectionContent}>30 Oct 2022</p>
+                      </div>
+
+                      <div className={styles.profileSection}>
+                        <h3 className={styles.profileSectionTitle}>Game Collection</h3>
+                        <div className={styles.gameCollection}>
+                          <div className={styles.gameIcon} style={{ fontSize: '13px', fontWeight: 'bold' }}>33</div>
+                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg></div>
+                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg></div>
+                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+                        </div>
+                      </div>
+
+                      <div className={styles.fullProfileLink}>View Full Profile</div>
                     </div>
                   </aside>
                 </>
