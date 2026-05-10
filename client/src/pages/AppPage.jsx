@@ -10,6 +10,7 @@ import styles from "./AppPage.module.css";
 import UserSettings from "./UserSettings";
 
 const API = "/api";
+const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
 // Status config — defined at module level so it's stable across renders
 const STATUSES = {
@@ -155,12 +156,19 @@ export default function AppPage() {
   const [callType, setCallType] = useState('audio');
   const [targetUser, setTargetUser] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
+  const isImageAttachment = (mimeType = "", url = "") => {
+    if (mimeType && mimeType.startsWith("image/")) return true;
+    return /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(url);
+  };
+
 
   // Friend system state
   const [activeHomeTab, setActiveHomeTab] = useState('addFriend');
   const [friendsData, setFriendsData] = useState({ friends: [], incoming: [], outgoing: [] });
   const [friendRequestStatus, setFriendRequestStatus] = useState('');
   const [friendRequestMsg, setFriendRequestMsg] = useState('');
+  const [selectedDmFriend, setSelectedDmFriend] = useState(null);
+  const [dmMessages, setDmMessages] = useState([]);
 
   // Sync ref
   useEffect(() => {
@@ -406,6 +414,16 @@ export default function AppPage() {
     }
   }, [activeServer, fetchServerData]);
 
+  // Reset DM panel when friend is no longer in friend list
+  useEffect(() => {
+    if (!selectedDmFriend) return;
+    const stillFriend = friendsData.friends.some((f) => f.id === selectedDmFriend.id);
+    if (!stillFriend) {
+      setSelectedDmFriend(null);
+      setDmMessages([]);
+    }
+  }, [friendsData.friends, selectedDmFriend]);
+
 
 
 
@@ -449,15 +467,39 @@ export default function AppPage() {
     }
   }, [fetchMessages, socket, activeChannel, activeServer]);
 
+  const fetchDmMessages = useCallback(async () => {
+    if (activeServer !== "home" || !selectedDmFriend?.id) return;
+    try {
+      const res = await fetch(`${API}/dm/${selectedDmFriend.id}/messages`, {
+        headers: authHeaders(token),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDmMessages(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch direct messages:", err);
+    }
+  }, [activeServer, selectedDmFriend, token]);
+
+  useEffect(() => {
+    if (activeServer !== "home" || !selectedDmFriend?.id) return;
+    fetchDmMessages();
+    const interval = setInterval(fetchDmMessages, 3000);
+    return () => clearInterval(interval);
+  }, [activeServer, selectedDmFriend, fetchDmMessages]);
+
   // ── Auto-scroll chat ──
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, dmMessages]);
 
   // ── Send message ──
   const sendMessage = async (e) => {
     e.preventDefault();
-    if ((!msgInput.trim() && !attachmentFile) || !activeChannel || isSending) return;
+    const isDmView = activeServer === "home" && !!selectedDmFriend?.id;
+    if ((!msgInput.trim() && !attachmentFile) || isSending) return;
+    if (!isDmView && !activeChannel) return;
 
     try {
       setIsSending(true);
@@ -516,18 +558,33 @@ export default function AppPage() {
     }
   };
 
+  const openFriendDm = (friend) => {
+    setSelectedDmFriend(friend);
+    setActiveHomeTab("all");
+    setMsgInput("");
+    cancelAttachment();
+  };
+
   // ── Voice/Video Call Functions ──
   const logCallStartEvent = async (type) => {
-    if (!activeServer || activeServer === "home" || !activeChannel) return;
     try {
-      await fetch(
-        `${API}/servers/${activeServer}/channels/${activeChannel}/call-events`,
-        {
+      if (activeServer === "home" && selectedDmFriend?.id) {
+        await fetch(`${API}/dm/${selectedDmFriend.id}/call-events`, {
           method: "POST",
           headers: authHeaders(token),
           body: JSON.stringify({ callType: type }),
-        }
-      );
+        });
+        fetchDmMessages();
+      } else if (activeServer && activeServer !== "home" && activeChannel) {
+        await fetch(
+          `${API}/servers/${activeServer}/channels/${activeChannel}/call-events`,
+          {
+            method: "POST",
+            headers: authHeaders(token),
+            body: JSON.stringify({ callType: type }),
+          }
+        );
+      }
     } catch (err) {
       console.error("Failed to log call start event:", err);
     }
@@ -576,6 +633,9 @@ export default function AppPage() {
   };
 
   const cancelAttachment = () => {
+    if (attachmentPreview) {
+      URL.revokeObjectURL(attachmentPreview);
+    }
     setAttachmentFile(null);
     setAttachmentPreview(null);
     setAttachmentMeta(null);
@@ -903,7 +963,10 @@ export default function AppPage() {
             </div>
             <div className={styles.scrollSection}>
               <div className={styles.dmNavList}>
-                <div className={`${styles.navItem} ${styles.activeNavItem}`}>
+                <div 
+                  className={`${styles.navItem} ${!selectedDmFriend ? styles.activeNavItem : ""}`}
+                  onClick={() => setSelectedDmFriend(null)}
+                >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v2h20v-2c0-3.33-6.67-5-10-5z" /></svg>
                   <span>Friends</span>
                 </div>
@@ -916,11 +979,25 @@ export default function AppPage() {
                 <span>Direct Messages</span>
                 <button className={styles.addDmBtn}>+</button>
               </div>
-              {[1, 2, 3, 4, 5, 6].map(i => (
-                <div key={i} className={styles.dmPlaceholder}>
-                  <div className={styles.dmAvatarGhost}></div>
-                  <div className={styles.dmNameGhost}></div>
-                </div>
+              {friendsData.friends.map((friend) => (
+                <button
+                  key={friend.id}
+                  type="button"
+                  className={`${styles.dmPlaceholder} ${selectedDmFriend?.id === friend.id ? styles.activeNavItem : ""}`}
+                  onClick={() => openFriendDm(friend)}
+                >
+                  <div
+                    className={styles.dmAvatarGhost}
+                    style={{
+                      backgroundImage: friend.avatarUrl ? `url(${friend.avatarUrl})` : "none",
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }}
+                  >
+                    {!friend.avatarUrl ? friend.username.charAt(0).toUpperCase() : null}
+                  </div>
+                  <div className={styles.friendName}>{friend.username}</div>
+                </button>
               ))}
             </div>
           </>
@@ -1021,20 +1098,268 @@ export default function AppPage() {
           <>
             <header className={styles.topHeader}>
               <div className={styles.headerLeft}>
-                <div className={styles.headerTitle}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v2h20v-2c0-3.33-6.67-5-10-5z" /></svg>
-                  Friends
+                <div className={styles.headerTitle} style={{ width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+                  {selectedDmFriend ? (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div className={styles.friendAvatarWrap} style={{ width: '28px', height: '28px' }}>
+                          <div className={styles.friendAvatar} style={{ backgroundImage: selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: selectedDmFriend.avatarUrl ? 'transparent' : 'inherit' }}>
+                            {!selectedDmFriend.avatarUrl && selectedDmFriend.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div className={styles.friendDot} style={{ background: onlineUsers[selectedDmFriend.id] ? '#23a559' : '#80848e', width: '10px', height: '10px', bottom: '-2px', right: '-2px', border: '2px solid var(--bg-base)' }}></div>
+                        </div>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{selectedDmFriend.username}</span>
+                      </div>
+                      <div className={styles.dmHeaderRight}>
+                        <div className={styles.dmHeaderIcons}>
+                          <button className={styles.dmHeaderIconBtn} title="Start Voice Call" onClick={() => {
+                            if (!onlineUsers[selectedDmFriend.id]) return alert('User is not online');
+                            startCall({ ...selectedDmFriend, socketId: onlineUsers[selectedDmFriend.id] }, 'audio');
+                          }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 1.66-1.34 3-3 3s-3-1.34-3-3H5c0 2.21 1.79 4 4 4s4-1.79 4-4h-2z"/></svg>
+                          </button>
+                          <button className={styles.dmHeaderIconBtn} title="Start Video Call" onClick={() => {
+                            if (!onlineUsers[selectedDmFriend.id]) return alert('User is not online');
+                            startCall({ ...selectedDmFriend, socketId: onlineUsers[selectedDmFriend.id] }, 'video');
+                          }}>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                          </button>
+                          <button className={styles.dmHeaderIconBtn} title="Pinned Messages">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11V5.5C16 3.57 14.43 2 12.5 2S9 3.57 9 5.5V11L7 13v2h4v6h2v-6h4v-2l-2-2z"/></svg>
+                          </button>
+                          <button className={styles.dmHeaderIconBtn} title="Add Friends to DM">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                          </button>
+                          <button className={styles.dmHeaderIconBtn} title="User Profile">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+                          </button>
+                        </div>
+                        <div className={styles.dmSearchBar}>
+                          <input type="text" className={styles.dmSearchInput} placeholder="Search" />
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{color: 'var(--text-muted)'}}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v2h20v-2c0-3.33-6.67-5-10-5z" /></svg>
+                      Friends
+                    </>
+                  )}
                 </div>
-                <div className={styles.headerDivider}></div>
-                <div className={styles.headerTabs}>
-                  <button className={`${styles.tabBtn} ${activeHomeTab === 'online' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('online')}>Online</button>
-                  <button className={`${styles.tabBtn} ${activeHomeTab === 'all' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('all')}>All</button>
-                  <button className={`${styles.tabBtn} ${activeHomeTab === 'pending' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('pending')}>Pending{friendsData.incoming.length > 0 && <span className={styles.pendingBadge}>{friendsData.incoming.length}</span>}</button>
-                  <button className={`${styles.tabBtn} ${activeHomeTab === 'addFriend' ? styles.activeTabBtn : ''}`} onClick={() => { setActiveHomeTab('addFriend'); setFriendRequestMsg(''); }}>Add Friend</button>
-                </div>
+                {!selectedDmFriend && (
+                  <>
+                    <div className={styles.headerDivider}></div>
+                    <div className={styles.headerTabs}>
+                      <button className={`${styles.tabBtn} ${activeHomeTab === 'online' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('online')}>Online</button>
+                      <button className={`${styles.tabBtn} ${activeHomeTab === 'all' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('all')}>All</button>
+                      <button className={`${styles.tabBtn} ${activeHomeTab === 'pending' ? styles.activeTabBtn : ''}`} onClick={() => setActiveHomeTab('pending')}>Pending{friendsData.incoming.length > 0 && <span className={styles.pendingBadge}>{friendsData.incoming.length}</span>}</button>
+                      <button className={`${styles.tabBtn} ${activeHomeTab === 'addFriend' ? styles.activeTabBtn : ''}`} onClick={() => { setActiveHomeTab('addFriend'); setFriendRequestMsg(''); }}>Add Friend</button>
+                    </div>
+                  </>
+                )}
               </div>
             </header>
             <div className={styles.friendsLayout}>
+              {selectedDmFriend ? (
+                <>
+                  <div className={styles.chatArea}>
+                    <div className={styles.messageList}>
+                      {dmMessages.length === 0 && (
+                        <div className={styles.welcomeMsg}>
+                          <div className={styles.welcomeHash} style={{ borderRadius: '50%', width: '80px', height: '80px', fontSize: '32px', backgroundImage: selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: selectedDmFriend.avatarUrl ? 'transparent' : 'inherit' }}>
+                            {!selectedDmFriend.avatarUrl && selectedDmFriend.username.charAt(0).toUpperCase()}
+                          </div>
+                          <h2 className={styles.welcomeTitle}>{selectedDmFriend.username}</h2>
+                          <h3 style={{ fontSize: '18px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '8px' }}>{selectedDmFriend.username.toLowerCase().replace(/\s/g, '_')}xo</h3>
+                          <p className={styles.welcomeDesc}>This is the beginning of your direct message history with <strong>{selectedDmFriend.username}</strong>.</p>
+                          <div className={styles.dmEmptyActions}>
+                            <div className={styles.mutualServers}>
+                              <svg width="24" height="24" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="32" cy="32" r="32" fill="#5865f2" />
+                                <text x="12" y="44" fontFamily="Inter, sans-serif" fontWeight="900" fontSize="36" fill="#fff">ls</text>
+                              </svg>
+                              3 Mutual Servers
+                            </div>
+                            <span style={{color: 'var(--text-muted)'}}>•</span>
+                            <button className={styles.dmEmptyActionBtn}>Remove Friend</button>
+                            <button className={styles.dmEmptyActionBtn}>Block</button>
+                          </div>
+                        </div>
+                      )}
+                      {dmMessages.map((msg) => {
+                        if (msg.type === "system") {
+                          return (
+                            <div key={msg.id} className={msg.systemKind === "call_started" ? styles.callSystemMsg : styles.systemMsg}>
+                              {msg.systemKind === "call_started" ? (
+                                <div className={styles.callSystemIcon}>
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16.42v3.54a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 1.14 4.18 2 2 0 0 1 3.13 2h3.54a2 2 0 0 1 2 1.72c.12.89.35 1.76.68 2.59a2 2 0 0 1-.45 2.11L7.42 9.9a16 16 0 0 0 6.68 6.68l1.48-1.48a2 2 0 0 1 2.11-.45c.83.33 1.7.56 2.59.68A2 2 0 0 1 21 16.42z" /></svg>
+                                </div>
+                              ) : (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13 12H3" /></svg>
+                              )}
+                              <span className={msg.systemKind === "call_started" ? styles.callSystemText : ""}>{msg.content}</span>
+                              <span className={styles.msgTimestamp}>
+                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          );
+                        }
+                        const isOwn = msg.senderId === userId;
+                        return (
+                          <div key={msg.id} className={styles.message}>
+                            <div className={styles.msgAvatarCircle} style={{
+                              background: isOwn ? '#5865f2' : '#23a559',
+                              backgroundImage: !isOwn && selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : (isOwn && auth.user?.avatarUrl ? `url(${auth.user.avatarUrl})` : 'none'),
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              color: (!isOwn && selectedDmFriend.avatarUrl) || (isOwn && auth.user?.avatarUrl) ? 'transparent' : 'inherit'
+                            }}>
+                              {isOwn
+                                ? (!auth.user?.avatarUrl && username.charAt(0).toUpperCase())
+                                : (!selectedDmFriend.avatarUrl && selectedDmFriend.username.charAt(0).toUpperCase())}
+                            </div>
+                            <div className={styles.msgContent}>
+                              <div className={styles.msgHeader}>
+                                <span className={styles.msgAuthor} style={{ color: isOwn ? '#949cf7' : '#57f287' }}>
+                                  {isOwn ? username : selectedDmFriend.username}
+                                </span>
+                                <span className={styles.msgTimestamp}>
+                                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              {msg.content && <p className={styles.msgBody}>{msg.content}</p>}
+                              {msg.attachmentUrl && (
+                                <div className={styles.msgAttachmentWrap}>
+                                  {isImageAttachment(msg.attachmentMimeType, msg.attachmentUrl) ? (
+                                    <img src={msg.attachmentUrl} alt="attachment" className={styles.msgAttachment} />
+                                  ) : (
+                                    <a
+                                      href={msg.attachmentUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className={styles.fileAttachmentLink}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                                      <span>{msg.attachmentName || "Download attachment"}</span>
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    <div className={styles.chatInputContainer}>
+                      {attachmentPreview && (
+                        <div className={styles.attachmentPreviewWrap}>
+                          <img src={attachmentPreview} alt="preview" className={styles.attachmentPreviewImg} />
+                          <button type="button" className={styles.cancelAttachmentBtn} onClick={cancelAttachment}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                          </button>
+                        </div>
+                      )}
+                      {!attachmentPreview && attachmentFile && (
+                        <div className={styles.attachmentPreviewWrap}>
+                          <div className={styles.filePreviewRow}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            <span className={styles.filePreviewName}>{attachmentFile.name}</span>
+                          </div>
+                          <button type="button" className={styles.cancelAttachmentBtn} onClick={cancelAttachment}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                          </button>
+                        </div>
+                      )}
+                      <form className={styles.chatInputBar} onSubmit={sendMessage} style={{ paddingRight: 0 }}>
+                        <input type="file" style={{ display: 'none' }} ref={fileInputRef} onChange={handleAttachmentChange} />
+                        <button type="button" className={styles.addAttachmentBtn} onClick={() => fileInputRef.current?.click()} disabled={isSending} style={{ background: 'var(--bg-raised)', border: 'none', color: 'var(--text-primary)', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '10px' }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
+                        </button>
+                        <input
+                          type="text"
+                          className={styles.chatInput}
+                          placeholder={`Message @${selectedDmFriend.username}`}
+                          value={msgInput}
+                          onChange={(e) => setMsgInput(e.target.value)}
+                          disabled={isSending}
+                        />
+                        <div className={styles.chatInputRightIcons}>
+                          <button type="button" className={styles.chatInputIconBtn} title="Gift">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12s4.48 10 10 10 10-4.48 10-10zm-11 5v-4H7l4-5v4h4l-4 5z"/></svg>
+                          </button>
+                          <button type="button" className={styles.chatInputIconBtn} title="GIF">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.5 9H13v6h-1.5zM9 9H6c-.6 0-1 .5-1 1v4c0 .5.4 1 1 1h3c.6 0 1-.5 1-1v-2H8.5v1.5h-1.5v-3H10V10c0-.5-.4-1-1-1zm10 1.5V9h-4.5v6H16v-2h2v-1.5h-2v-1h3z"/></svg>
+                          </button>
+                          <button type="button" className={styles.chatInputIconBtn} title="Sticker">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+                          </button>
+                          <button type="button" className={styles.chatInputIconBtn} title="Emoji">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                          </button>
+                          <button type="submit" className={styles.sendBtn} disabled={(!msgInput.trim() && !attachmentFile) || isSending} style={{ marginLeft: 0 }}>
+                            {isSending ? (
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.spinning}><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+                            ) : (
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+                            )}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+
+                  <aside className={styles.dmProfileSidebar}>
+                    <div className={styles.profileBanner}>
+                      <div className={styles.profileAvatarWrapper}>
+                        <div className={styles.profileAvatarLarge} style={{ backgroundImage: selectedDmFriend.avatarUrl ? `url(${selectedDmFriend.avatarUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', color: selectedDmFriend.avatarUrl ? 'transparent' : 'inherit' }}>
+                          {!selectedDmFriend.avatarUrl && selectedDmFriend.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div className={styles.profileStatusDotLarge} style={{ background: onlineUsers[selectedDmFriend.id] ? '#23a559' : '#80848e' }}></div>
+                      </div>
+                    </div>
+                    <div className={styles.profileContent}>
+                      <div className={styles.profileHeader}>
+                        <h2 className={styles.profileName}>{selectedDmFriend.username}</h2>
+                        <div className={styles.profileUsername}>
+                          {selectedDmFriend.username.toLowerCase().replace(/\s/g, '_')}xo
+                          <div className={styles.profileBadges}>
+                            <span className={styles.profileBadge} style={{ color: '#c4b5fd', background: 'rgba(124, 58, 237, 0.15)' }}>♥ MEOW</span>
+                            <span className={styles.profileBadge} style={{ color: '#f87171', background: 'rgba(239, 68, 68, 0.15)' }}>✔</span>
+                            <span className={styles.profileBadge} style={{ color: '#60a5fa', background: 'rgba(59, 130, 246, 0.15)' }}>#</span>
+                            <span className={styles.profileBadge} style={{ color: '#34d399', background: 'rgba(52, 211, 153, 0.15)' }}>✿</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className={styles.profileSection}>
+                        <h3 className={styles.profileSectionTitle}>Bio</h3>
+                        <p className={styles.profileSectionContent}>Vigilante</p>
+                      </div>
+
+                      <div className={styles.profileSection}>
+                        <h3 className={styles.profileSectionTitle}>Member Since</h3>
+                        <p className={styles.profileSectionContent}>30 Oct 2022</p>
+                      </div>
+
+                      <div className={styles.profileSection}>
+                        <h3 className={styles.profileSectionTitle}>Game Collection</h3>
+                        <div className={styles.gameCollection}>
+                          <div className={styles.gameIcon} style={{ fontSize: '13px', fontWeight: 'bold' }}>33</div>
+                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg></div>
+                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg></div>
+                          <div className={styles.gameIcon} style={{ background: 'transparent' }}><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+                        </div>
+                      </div>
+
+                      <div className={styles.fullProfileLink}>View Full Profile</div>
+                    </div>
+                  </aside>
+                </>
+              ) : (
+              <>
               <div className={styles.friendsMain}>
                 {/* ── Add Friend Tab ── */}
                 {activeHomeTab === 'addFriend' && (
@@ -1101,8 +1426,13 @@ export default function AppPage() {
                             </div>
                           </div>
                           <div className={styles.friendRowActions}>
+<<<<<<< HEAD
                             <button className={styles.friendActionBtn} title="Message"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg></button>
                             <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z" /></svg></button>
+=======
+                            <button className={styles.friendActionBtn} title="Message" onClick={() => openFriendDm(f)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
+                            <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg></button>
+>>>>>>> 7d6f22c8c67589a9459a0a89a80a47dc89600531
                           </div>
                         </div>
                       ))
@@ -1135,8 +1465,13 @@ export default function AppPage() {
                             </div>
                           </div>
                           <div className={styles.friendRowActions}>
+<<<<<<< HEAD
                             <button className={styles.friendActionBtn} title="Message"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" /></svg></button>
                             <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z" /></svg></button>
+=======
+                            <button className={styles.friendActionBtn} title="Message" onClick={() => openFriendDm(f)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
+                            <button className={`${styles.friendActionBtn} ${styles.friendActionDanger}`} title="Remove Friend" onClick={() => handleRemoveFriend(f.id)}><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"/></svg></button>
+>>>>>>> 7d6f22c8c67589a9459a0a89a80a47dc89600531
                           </div>
                         </div>
                       ))
@@ -1222,6 +1557,8 @@ export default function AppPage() {
                   </div>
                 )}
               </aside>
+              </>
+              )}
             </div>
           </>
         ) : (
