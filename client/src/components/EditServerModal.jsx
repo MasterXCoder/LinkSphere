@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import styles from './CreateServerModal.module.css'; // Reusing same styles
-
-const API = "/api";
+import { API } from '../apiConfig';
 
 const EditServerModal = ({ server, onClose, onUpdated }) => {
     const [serverName, setServerName] = useState(server?.name || "");
@@ -32,7 +31,7 @@ const EditServerModal = ({ server, onClose, onUpdated }) => {
             // If a new file was selected, upload it to Cloudinary first
             if (fileToUpload) {
                 const formData = new FormData();
-                formData.append("image", fileToUpload);
+                formData.append("file", fileToUpload);
                 const uploadRes = await fetch(`${API}/upload`, {
                     method: "POST",
                     headers: {
