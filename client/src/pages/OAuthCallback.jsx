@@ -16,6 +16,9 @@ export default function OAuthCallback() {
     const token = searchParams.get("token");
     const userParam = searchParams.get("user");
 
+    console.log("OAuth Callback - Token found:", !!token);
+    console.log("OAuth Callback - UserParam found:", !!userParam);
+
     if (!token || !userParam) {
       setError("Authentication failed. Missing credentials.");
       setTimeout(() => navigate("/login", { replace: true }), 2000);
@@ -24,10 +27,11 @@ export default function OAuthCallback() {
 
     try {
       const user = JSON.parse(decodeURIComponent(userParam));
+      console.log("OAuth Callback - Parsed User:", user);
       login({ token, user });
       navigate("/app", { replace: true });
     } catch (err) {
-      console.error("OAuth callback error:", err);
+      console.error("OAuth callback error during parsing:", err);
       setError("Authentication failed. Please try again.");
       setTimeout(() => navigate("/login", { replace: true }), 2000);
     }
