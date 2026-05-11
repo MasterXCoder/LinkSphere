@@ -34,7 +34,7 @@ const getDirectMessages = catchAsync(async (req, res) => {
 const postDirectMessage = catchAsync(async (req, res) => {
   const meId = req.user.id;
   const friendId = Number(req.params.friendId);
-  const { content, attachmentUrl, attachmentName, attachmentMimeType } = req.body || {};
+  const { content, attachmentUrl, attachmentName, attachmentSize, attachmentType } = req.body || {};
 
   if (!Number.isFinite(friendId)) throw new ApiError(400, "Invalid friend id");
   if (friendId === meId) throw new ApiError(400, "Cannot message yourself");
@@ -52,7 +52,8 @@ const postDirectMessage = catchAsync(async (req, res) => {
     content: trimmedContent,
     attachmentUrl: attachmentUrl || null,
     attachmentName: attachmentName || null,
-    attachmentMimeType: attachmentMimeType || null,
+    attachmentSize: attachmentSize ?? null,
+    attachmentType: attachmentType || null,
   });
 
   await newMessage.save();

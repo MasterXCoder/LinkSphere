@@ -534,9 +534,8 @@ export default function AppPage() {
       }
 
       // Step 2: post the message with attachment metadata
-      await fetch(
-        `${API}/servers/${activeServer}/channels/${activeChannel}/messages`,
-        {
+      if (isDmView) {
+        await fetch(`${API}/dm/${selectedDmFriend.id}/messages`, {
           method: "POST",
           headers: authHeaders(token),
           body: JSON.stringify({
@@ -546,8 +545,24 @@ export default function AppPage() {
             attachmentSize: finalAttachmentSize,
             attachmentType: finalAttachmentType,
           }),
-        }
-      );
+        });
+        fetchDmMessages();
+      } else {
+        await fetch(
+          `${API}/servers/${activeServer}/channels/${activeChannel}/messages`,
+          {
+            method: "POST",
+            headers: authHeaders(token),
+            body: JSON.stringify({
+              content:        msgInput,
+              attachmentUrl:  finalAttachmentUrl,
+              attachmentName: finalAttachmentName,
+              attachmentSize: finalAttachmentSize,
+              attachmentType: finalAttachmentType,
+            }),
+          }
+        );
+      }
 
       setMsgInput("");
       cancelAttachment();

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 
 const AuthContext = createContext(null);
 
@@ -71,6 +71,24 @@ export function AuthProvider({ children }) {
         localStorage.setItem("token", newToken);
         setToken(newToken);
     }, []);
+
+    useEffect(() => {
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+            const response = await originalFetch(...args);
+            if (response.status === 401 || response.status === 403) {
+                const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+                if (url && !url.includes('/login') && !url.includes('/register') && !url.includes('/auth/google')) {
+                    logout();
+                }
+            }
+            return response;
+        };
+        
+        return () => {
+            window.fetch = originalFetch;
+        };
+    }, [logout]);
 
     return (
         <AuthContext.Provider value={{ user, token, login, logout, updateUser, updateToken }}>

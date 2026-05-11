@@ -31,8 +31,13 @@ const directMessageSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    attachmentMimeType: {
+    attachmentSize: {
+      type: Number,
+      default: null,
+    },
+    attachmentType: {
       type: String,
+      enum: ["image", "video", "raw"],
       default: null,
     },
     type: {
