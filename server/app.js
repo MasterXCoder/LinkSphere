@@ -14,7 +14,15 @@ const dmRoutes = require("./routes/dmRoutes");
 const app = express();
 
 // ── Middleware ────────────────────────────────────────────────────────────────
-app.use(cors({ origin: ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"], credentials: true }));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
+  process.env.CLIENT_URL
+].filter(Boolean);
+
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 app.use(session({
   secret: process.env.SESSION_SECRET || "fallback-secret",
@@ -31,6 +39,10 @@ app.use("/api/auth", authRoutes);      // Google OAuth routes
 app.use("/api/upload", uploadRoutes);  // Cloudinary image upload
 app.use("/api/friends", friendRoutes); // Friend system
 app.use("/api/dm", dmRoutes);          // Personal direct messages
+
+app.get("/", (req, res) => {
+  res.send("LinkSphere API is running");
+});
 
 // Health check
 app.get("/api/health", (req, res) => {
