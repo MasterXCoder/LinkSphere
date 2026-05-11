@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import styles from './UserSettings.module.css';
 import { THEMES, saveTheme } from '../utils/theme.js';
+import { API } from '../apiConfig';
 
 export default function UserSettings({ onClose }) {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ export default function UserSettings({ onClose }) {
       try {
         const userId = auth.user?.id;
         if (!userId || !auth.token) return;
-        const res = await fetch(`/api/users/${userId}`, {
+        const res = await fetch(`${API}/users/${userId}`, {
           headers: { "Authorization": `Bearer ${auth.token}` }
         });
         if (res.ok) {
@@ -119,7 +120,7 @@ export default function UserSettings({ onClose }) {
 
   const fetchSettingsFriends = useCallback(async () => {
     try {
-      const res = await fetch(`/api/friends`, {
+      const res = await fetch(`${API}/friends`, {
         headers: { "Authorization": `Bearer ${auth.token}` }
       });
       if (res.ok) {
@@ -140,7 +141,7 @@ export default function UserSettings({ onClose }) {
     setSettingsFriendMsg('');
     setSettingsFriendStatus('');
     try {
-      const res = await fetch('/api/friends/request', {
+      const res = await fetch(`${API}/friends/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` },
         body: JSON.stringify({ toUsername: settingsFriendInput.trim() }),
@@ -159,17 +160,17 @@ export default function UserSettings({ onClose }) {
   };
 
   const handleSettingsAccept = async (fromId) => {
-    await fetch('/api/friends/accept', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` }, body: JSON.stringify({ fromId }) });
+    await fetch(`${API}/friends/accept`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` }, body: JSON.stringify({ fromId }) });
     fetchSettingsFriends();
   };
 
   const handleSettingsDecline = async (fromId) => {
-    await fetch('/api/friends/decline', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` }, body: JSON.stringify({ fromId }) });
+    await fetch(`${API}/friends/decline`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` }, body: JSON.stringify({ fromId }) });
     fetchSettingsFriends();
   };
 
   const handleSettingsRemove = async (friendId) => {
-    await fetch(`/api/friends/${friendId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${auth.token}` } });
+    await fetch(`${API}/friends/${friendId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${auth.token}` } });
     fetchSettingsFriends();
   };
 
@@ -183,9 +184,9 @@ export default function UserSettings({ onClose }) {
 
     try {
       const formData = new FormData();
-      formData.append("image", file);
+      formData.append("file", file);
 
-      const uploadRes = await fetch("/api/upload", {
+      const uploadRes = await fetch(`${API}/upload`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${auth.token}`,
@@ -203,7 +204,7 @@ export default function UserSettings({ onClose }) {
       const uploadData = await uploadRes.json();
       const newAvatarUrl = uploadData.url;
 
-      const updateRes = await fetch(`/api/users/${auth.user?.id}`, {
+      const updateRes = await fetch(`${API}/users/${auth.user?.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -237,7 +238,7 @@ export default function UserSettings({ onClose }) {
     try {
       // 1. Verify password via login endpoint (since there's no dedicated verify route)
       const cachedEmail = auth.user?.email;
-      const loginRes = await fetch("/api/users/login", {
+      const loginRes = await fetch(`${API}/users/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cachedEmail, password: editPassword })
@@ -261,7 +262,7 @@ export default function UserSettings({ onClose }) {
       if (editMode === 'username') body.username = editValue;
       if (editMode === 'email') body.email = editValue;
 
-      const updateRes = await fetch(`/api/users/${userId}`, {
+      const updateRes = await fetch(`${API}/users/${userId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -318,7 +319,7 @@ export default function UserSettings({ onClose }) {
     try {
       // 1. Verify current password via login endpoint
       const cachedEmail = auth.user?.email;
-      const loginRes = await fetch("/api/users/login", {
+      const loginRes = await fetch(`${API}/users/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cachedEmail, password: passwordCurrent })
@@ -336,7 +337,7 @@ export default function UserSettings({ onClose }) {
 
       // 2. Perform the update with new password
       const userId = auth.user?.id;
-      const updateRes = await fetch(`/api/users/${userId}`, {
+      const updateRes = await fetch(`${API}/users/${userId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -383,7 +384,7 @@ export default function UserSettings({ onClose }) {
 
     try {
       const userId = auth.user?.id;
-      const res = await fetch(`/api/users/${userId}`, {
+      const res = await fetch(`${API}/users/${userId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -420,7 +421,7 @@ export default function UserSettings({ onClose }) {
     try {
       // 1. Verify password via login endpoint
       const cachedEmail = auth.user?.email;
-      const loginRes = await fetch("/api/users/login", {
+      const loginRes = await fetch(`${API}/users/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: cachedEmail, password: deletePassword })
@@ -437,7 +438,7 @@ export default function UserSettings({ onClose }) {
 
       // 2. Perform the delete with fresh valid token
       const userId = auth.user?.id;
-      const res = await fetch(`/api/users/${userId}`, {
+      const res = await fetch(`${API}/users/${userId}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${newToken}`

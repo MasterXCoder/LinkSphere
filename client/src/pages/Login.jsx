@@ -8,6 +8,8 @@ const LOGIN_FIELDS = [
   { name: "password", label: "Password", type: "password", placeholder: "Your password" },
 ];
 
+import { API } from '../apiConfig';
+
 export default function Login() {
   const navigate = useNavigate();
   const auth = useAuth();
@@ -19,7 +21,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/users/login", {
+      const res = await fetch(`${API}/users/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),

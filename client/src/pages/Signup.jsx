@@ -10,6 +10,8 @@ const SIGNUP_FIELDS = [
   { name: "confirmPassword", label: "Confirm Password", type: "password", placeholder: "Confirm your password" }
 ];
 
+import { API } from '../apiConfig';
+
 export default function Signup() {
   const navigate = useNavigate();
   const [error, setError] = useState("");
@@ -28,7 +30,7 @@ export default function Signup() {
     try {
       const { confirmPassword, ...payload } = data;
 
-      const res = await fetch("/api/users/signup", {
+      const res = await fetch(`${API}/users/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

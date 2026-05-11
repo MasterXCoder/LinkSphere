@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import styles from './CreateServerModal.module.css';
+import { API } from '../apiConfig';
 
 const templates = [
     { icon: "🎮", label: 'Gaming' },
@@ -7,8 +8,6 @@ const templates = [
     { icon: "📚", label: 'Study Group' },
     { icon: "🏫", label: 'School Club' },
 ];
-
-const API = "/api";
 
 const CreateServerModal = ({ onClose, onCreated }) => {
     // Current view within the modal ('main', 'tellUsMore', 'customize', 'join')
@@ -49,7 +48,7 @@ const CreateServerModal = ({ onClose, onCreated }) => {
             let iconUrl = null;
             if (fileToUpload) {
                 const formData = new FormData();
-                formData.append("image", fileToUpload);
+                formData.append("file", fileToUpload);
                 const uploadRes = await fetch(`${API}/upload`, {
                     method: "POST",
                     headers: {

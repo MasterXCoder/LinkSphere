@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import App from "./pages/AppPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { API } from "./apiConfig";
 import "./index.css";
 
 /**
@@ -39,7 +40,7 @@ function InvitePage() {
 
     const joinServer = async () => {
       try {
-        const res = await fetch(`/api/servers/invite/${code}/join`, {
+        const res = await fetch(`${API}/servers/invite/${code}/join`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

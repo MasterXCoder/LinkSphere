@@ -12,7 +12,7 @@ import UserSettings from "./UserSettings";
 import useVoiceChannel from '../hooks/useVoiceChannel';
 import { Mic, MicOff, PhoneOff, Video, VideoOff, Monitor, MonitorOff, Phone } from 'lucide-react';
 
-const API = "/api";
+import { API, SOCKET_URL } from '../apiConfig';
 const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
 // Status config — defined at module level so it's stable across renders
@@ -50,7 +50,7 @@ export default function AppPage() {
   // Initialize socket
   useEffect(() => {
     if (token) {
-      const newSocket = io("", {
+      const newSocket = io(SOCKET_URL, {
         auth: { token, username },
       });
 
