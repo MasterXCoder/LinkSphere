@@ -1,15 +1,42 @@
 import { useState, useEffect, useRef } from 'react';
+import { API } from '../apiConfig';
 
-const ICE_SERVERS = {
+// Fallback if TURN fetch fails
+const FALLBACK_ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
   ],
+  iceCandidatePoolSize: 10,
 };
 
-export default function useVoiceChannel(socket, roomId, isMuted, user) {
+// Fetch TURN credentials from backend (Xirsys)
+let cachedIceServers = null;
+let cacheTimestamp = 0;
+const ICE_CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours
+
+async function getIceServers(token) {
+  // Return cached if still valid
+  if (cachedIceServers && Date.now() - cacheTimestamp < ICE_CACHE_TTL) {
+    return cachedIceServers;
+  }
+  try {
+    const res = await fetch(`${API}/turn/credentials`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      cachedIceServers = { iceServers: data.iceServers, iceCandidatePoolSize: 10 };
+      cacheTimestamp = Date.now();
+      return cachedIceServers;
+    }
+  } catch (err) {
+    console.error('Failed to fetch TURN credentials:', err);
+  }
+  return FALLBACK_ICE_SERVERS;
+}
+
+export default function useVoiceChannel(socket, roomId, isMuted, user, token) {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStreams, setRemoteStreams] = useState({});
   const [speakingUsers, setSpeakingUsers] = useState({});
@@ -19,6 +46,16 @@ export default function useVoiceChannel(socket, roomId, isMuted, user) {
   const peersRef = useRef({});
   const iceQueuesRef = useRef({});
   const localStreamRef = useRef(null);
+  const iceConfigRef = useRef(null);
+
+  // Pre-fetch TURN credentials when joining a room
+  useEffect(() => {
+    if (roomId && token) {
+      getIceServers(token).then(config => {
+        iceConfigRef.current = config;
+      });
+    }
+  }, [roomId, token]);
 
   // Initialize microphone when entering a room
   useEffect(() => {
@@ -83,7 +120,7 @@ export default function useVoiceChannel(socket, roomId, isMuted, user) {
       }
       
       iceQueuesRef.current[targetSocketId] = [];
-      const pc = new RTCPeerConnection(ICE_SERVERS);
+      const pc = new RTCPeerConnection(iceConfigRef.current || FALLBACK_ICE_SERVERS);
       
       pc.onicecandidate = ({ candidate }) => {
         if (candidate) {

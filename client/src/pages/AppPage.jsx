@@ -52,6 +52,7 @@ export default function AppPage() {
     if (token) {
       const newSocket = io(SOCKET_URL, {
         auth: { token, username },
+        transports: ['websocket'],  // Skip long-polling — go straight to WebSocket
       });
 
       setSocket(newSocket);
@@ -175,7 +176,7 @@ export default function AppPage() {
   const [incomingCall, setIncomingCall] = useState(null);
 
   // Use Voice Channel Hook
-  const { remoteStreams, localStream, speakingUsers, isVideoOn, isScreenSharing, toggleVideo, toggleScreenShare } = useVoiceChannel(socket, joinedVoiceChannel, isMuted, auth?.user);
+  const { remoteStreams, localStream, speakingUsers, isVideoOn, isScreenSharing, toggleVideo, toggleScreenShare } = useVoiceChannel(socket, joinedVoiceChannel, isMuted, auth?.user, token);
 
   // Friend system state
   const [activeHomeTab, setActiveHomeTab] = useState('addFriend');
@@ -2135,6 +2136,7 @@ export default function AppPage() {
           isDeafened={isDeafened}
           onToggleMute={() => setIsMuted(!isMuted)}
           onToggleDeafen={() => setIsDeafened(!isDeafened)}
+          token={token}
         />
       )}
 

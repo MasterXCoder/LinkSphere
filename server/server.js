@@ -40,6 +40,11 @@ const io = new Server(httpServer, {
     origin: allowedOrigins,
     credentials: true,
   },
+  transports: ['websocket'],       // Skip long-polling — go straight to WebSocket
+  allowUpgrades: false,            // Don't attempt polling fallback
+  pingInterval: 25000,
+  pingTimeout: 20000,
+  maxHttpBufferSize: 1e6,          // 1MB max payload
 });
 
 app.set("io", io);
@@ -90,8 +95,9 @@ io.on("connection", async (socket) => {
   }
   userSockets.get(userId).add(socket.id);
 
-  // Update user's socketId in database
-  await User.findOneAndUpdate({ id: userId }, { socketId: socket.id });
+  // Update user's socketId in database (fire-and-forget — non-blocking)
+  User.findOneAndUpdate({ id: userId }, { socketId: socket.id })
+    .catch(err => console.error("Failed to update socketId:", err));
 
   // Tell THIS socket about ALL currently online users (including themselves)
   const onlineList = [];
@@ -245,13 +251,15 @@ io.on("connection", async (socket) => {
       if (socketSet.size === 0) {
         console.log(`🛑 Removing active socket for ${socket.user.username} (${userId})`);
         userSockets.delete(userId);
-        await User.findOneAndUpdate({ id: userId }, { socketId: null });
+        User.findOneAndUpdate({ id: userId }, { socketId: null })
+          .catch(err => console.error("Failed to clear socketId:", err));
         socket.broadcast.emit("user-offline", { userId });
         console.log(`📢 Broadcasted user-offline for ${socket.user.username} (${userId})`);
       } else {
         console.log(`⚠️ Ignored disconnect for ${socket.user.username} (${socketSet.size} sockets remaining)`);
         const activeSocketId = Array.from(socketSet)[0];
-        await User.findOneAndUpdate({ id: userId }, { socketId: activeSocketId });
+        User.findOneAndUpdate({ id: userId }, { socketId: activeSocketId })
+          .catch(err => console.error("Failed to update socketId:", err));
         socket.broadcast.emit("user-online", { userId, socketId: activeSocketId });
       }
     }
