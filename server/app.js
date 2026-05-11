@@ -10,6 +10,7 @@ const authRoutes = require("./routes/authRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const friendRoutes = require("./routes/friendRoutes");
 const dmRoutes = require("./routes/dmRoutes");
+const turnRoutes = require("./routes/turnRoutes");
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use("/api/auth", authRoutes);      // Google OAuth routes
 app.use("/api/upload", uploadRoutes);  // Cloudinary image upload
 app.use("/api/friends", friendRoutes); // Friend system
 app.use("/api/dm", dmRoutes);          // Personal direct messages
+app.use("/api/turn", turnRoutes);      // TURN server credentials
 
 app.get("/", (req, res) => {
   res.send("LinkSphere API is running");

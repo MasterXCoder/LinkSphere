@@ -6,18 +6,44 @@ import {
 } from 'lucide-react';
 import styles from './CallModal.module.css';
 import { useAuth } from '../context/AuthContext';
+import { API } from '../apiConfig';
 
-const ICE_SERVERS = {
+// Fallback if TURN fetch fails
+const FALLBACK_ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
   ],
+  iceCandidatePoolSize: 10,
 };
 
+// Fetch TURN credentials from backend (Xirsys)
+let cachedIceServers = null;
+let cacheTimestamp = 0;
+const ICE_CACHE_TTL = 12 * 60 * 60 * 1000; // 12 hours
+
+async function getIceServers(token) {
+  if (cachedIceServers && Date.now() - cacheTimestamp < ICE_CACHE_TTL) {
+    return cachedIceServers;
+  }
+  try {
+    const res = await fetch(`${API}/turn/credentials`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      cachedIceServers = { iceServers: data.iceServers, iceCandidatePoolSize: 10 };
+      cacheTimestamp = Date.now();
+      return cachedIceServers;
+    }
+  } catch (err) {
+    console.error('Failed to fetch TURN credentials:', err);
+  }
+  return FALLBACK_ICE_SERVERS;
+}
+
 export default function CallModal({
-  isOpen, onClose, socket, targetUser, callType, isIncoming, initialSignal, isMuted, isDeafened, onToggleMute, onToggleDeafen
+  isOpen, onClose, socket, targetUser, callType, isIncoming, initialSignal, isMuted, isDeafened, onToggleMute, onToggleDeafen, token
 }) {
   // ── UI state ─────────────────────────────────────────────────────────────
   const [callState, setCallState] = useState(isIncoming ? 'ringing' : 'calling');
@@ -47,6 +73,16 @@ export default function CallModal({
   const timerRef           = useRef(null);
   const isScreenSharingRef = useRef(false);   // mirrors state for use inside onended
   const remoteStreamRef    = useRef(null);    // latest remote MediaStream
+  const iceConfigRef       = useRef(null);    // TURN credentials
+
+  // Pre-fetch TURN credentials when modal opens
+  useEffect(() => {
+    if (isOpen && token) {
+      getIceServers(token).then(config => {
+        iceConfigRef.current = config;
+      });
+    }
+  }, [isOpen, token]);
 
   // DOM element refs
   const localVideoRef    = useRef(null);
@@ -156,7 +192,7 @@ export default function CallModal({
 
   const buildPeerConnection = useCallback(() => {
     pcRef.current?.close();
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const pc = new RTCPeerConnection(iceConfigRef.current || FALLBACK_ICE_SERVERS);
     pcRef.current = pc;
 
     pc.onicecandidate = ({ candidate }) => {
