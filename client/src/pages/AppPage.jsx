@@ -2154,23 +2154,6 @@ export default function AppPage() {
         />
       )}
 
-      {/* CALL MODAL */}
-      {isCallModalOpen && (
-        <CallModal
-          isOpen={isCallModalOpen}
-          onClose={handleCallClose}
-          socket={socket}
-          targetUser={targetUser}
-          callType={callType}
-          isIncoming={!!incomingCall}
-          initialSignal={incomingCall}
-          isMuted={isMuted}
-          isDeafened={isDeafened}
-          onToggleMute={() => setIsMuted(!isMuted)}
-          onToggleDeafen={() => setIsDeafened(!isDeafened)}
-        />
-      )}
-
       {/* CHANNEL MODAL GATEKEEPER */}
       {isChannelModalOpen && (
         <div className={styles.modalOverlay}>
